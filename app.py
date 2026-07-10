@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
-"""财务 Agent — 管报底座 + 绩效试算 Demo (D2)"""
+"""财务 Agent — 管报底座 + 绩效试算 Demo (D3)"""
 from flask import Flask, request, jsonify, render_template_string
 import os
 import json
+import sqlite3
+import io
 from dotenv import load_dotenv
 from cherry_client import chat, chat_json, embed, test_connection
 
@@ -14,6 +16,28 @@ app = Flask(__name__)
 CHERRYIN_API_KEY = os.environ.get("CHERRYIN_API_KEY", "")
 CHERRYIN_BASE_URL = os.environ.get("CHERRYIN_BASE_URL", "https://express-ent-admin.cherryin.ai/v1")
 LLM_MODEL = os.environ.get("LLM_MODEL", "agent/deepseek-v4-pro")
+
+DB_PATH = os.path.join(os.path.dirname(__file__), "finance.db")
+
+# === 数据库初始化 ===
+def init_db():
+    conn = sqlite3.connect(DB_PATH)
+    c = conn.cursor()
+    c.execute("""CREATE TABLE IF NOT EXISTS transactions (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        source TEXT,
+        amount REAL,
+        summary TEXT,
+        level1 TEXT,
+        level2 TEXT,
+        confidence REAL,
+        reason TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )""")
+    conn.commit()
+    conn.close()
+
+init_db()
 
 # === 口径规则 ===
 ACCOUNTING_RULES = """
@@ -100,15 +124,15 @@ a.btn{display:inline-block;padding:10px 24px;background:#667eea;color:#fff;text-
   <div class="card">
     <h2>📋 功能模块</h2>
     <ul class="feature-list">
-      <li>📊 <b>管报底座</b> — 上传报销/对公支付/工资 → AI 归一化 → 飞书文档管报 <span class="tag tag-done">D2 归一化已实现</span></li>
+      <li>📊 <b>管报底座</b> — 上传报销/对公支付/工资 → AI 归一化 → 飞书文档管报 <span class="tag tag-done">D3 上传+预览已实现</span></li>
       <li>🎯 <b>绩效试算</b> — Bot 交互调参 → 历史业绩回放 → 对比表 <span class="tag tag-dev">D5-D6</span></li>
     </ul>
   </div>
   <div class="card">
     <h2>🔧 系统状态</h2>
-    <p>当前进度: <b>D2 归一化 + webhook</b> <span class="tag tag-done">运行中</span></p>
+    <p>当前进度: <b>D3 多数据源 + 管报预览</b> <span class="tag tag-done">运行中</span></p>
     <p>端口: 5002 | 服务器: 124.222.181.129</p>
-    <p><a class="btn" href="/upload">前往上传</a> <a class="btn" href="/api/test-llm" style="background:#52c41a">测试 LLM</a></p>
+    <p><a class="btn" href="/upload">前往上传</a> <a class="btn" href="/api/test-llm" style="background:#52c41a">测试 LLM</a> <a class="btn" href="/api/report/preview" style="background:#722ed1">管报预览</a></p>
   </div>
 </div>
 </body>
@@ -141,43 +165,63 @@ a{color:#667eea}
     <h1>📊 上传财务数据</h1>
   </div>
   <div class="card">
-    <h2>报销数据 (Excel/CSV)</h2>
-    <div class="drop-zone" id="drop1">点击或拖拽文件到此处</div>
+    <h2>选择数据源类型</h2>
+    <select id="source_type" style="padding:8px;font-size:14px;width:100%;border:1px solid #d9d9d9;border-radius:4px">
+      <option value="报销">报销数据</option>
+      <option value="对公支付">对公支付审批流</option>
+      <option value="工资">工资数据</option>
+    </select>
+  </div>
+  <div class="card">
+    <h2>上传文件 (Excel/CSV)</h2>
+    <div class="drop-zone" id="drop1">点击或拖拽文件到此处(表头需含"金额"和"摘要")</div>
     <input type="file" id="file1" accept=".xlsx,.xls,.csv" style="display:none">
-  </div>
-  <div class="card">
-    <h2>对公支付审批流 (Excel/CSV)</h2>
-    <div class="drop-zone" id="drop2">点击或拖拽文件到此处</div>
-    <input type="file" id="file2" accept=".xlsx,.xls,.csv" style="display:none">
-  </div>
-  <div class="card">
-    <h2>工资数据 (Excel/CSV)</h2>
-    <div class="drop-zone" id="drop3">点击或拖拽文件到此处</div>
-    <input type="file" id="file3" accept=".xlsx,.xls,.csv" style="display:none">
+    <p style="margin-top:8px;color:#999;font-size:13px">支持多文件,每个文件选对应的数据源类型后上传</p>
+    <button class="btn" id="upload-btn" disabled>📤 上传并归一化</button>
+    <div id="upload-result" style="margin-top:12px"></div>
   </div>
   <div style="text-align:center">
-    <button class="btn" id="submit" disabled>🚀 生成管报 (D4 实现)</button>
-    <p style="margin-top:12px;color:#999"><a href="/">← 返回首页</a></p>
+    <p style="margin-top:12px;color:#999"><a href="/">← 返回首页</a> | <a href="/api/report/preview" style="color:#722ed1">查看管报预览 →</a></p>
   </div>
 </div>
 <script>
-document.querySelectorAll('.drop-zone').forEach((zone,i)=>{
-  const input=document.getElementById('file'+(i+1));
-  zone.addEventListener('click',()=>input.click());
-  zone.addEventListener('dragover',e=>{e.preventDefault();zone.style.borderColor='#667eea'});
-  zone.addEventListener('dragleave',e=>{zone.style.borderColor='#d9d9d9'});
-  zone.addEventListener('drop',e=>{
-    e.preventDefault();
-    if(e.dataTransfer.files.length){input.files=e.dataTransfer.files;zone.textContent='✅ '+input.files[0].name;zone.classList.add('has-file');checkReady()}
-  });
-  input.addEventListener('change',()=>{
-    if(input.files.length){zone.textContent='✅ '+input.files[0].name;zone.classList.add('has-file');checkReady()}
-  });
+const zone=document.getElementById('drop1');
+const file=document.getElementById('file1');
+const btn=document.getElementById('upload-btn');
+const result=document.getElementById('upload-result');
+zone.addEventListener('click',()=>file.click());
+zone.addEventListener('dragover',e=>{e.preventDefault();zone.style.borderColor='#667eea'});
+zone.addEventListener('dragleave',e=>{zone.style.borderColor='#d9d9d9'});
+zone.addEventListener('drop',e=>{
+  e.preventDefault();
+  if(e.dataTransfer.files.length){file.files=e.dataTransfer.files;zone.textContent='✅ '+file.files[0].name;zone.classList.add('has-file');btn.disabled=false}
 });
-function checkReady(){
-  const ready=[1,2,3].some(i=>document.getElementById('file'+i).files.length);
-  document.getElementById('submit').disabled=!ready;
-}
+file.addEventListener('change',()=>{
+  if(file.files.length){zone.textContent='✅ '+file.files[0].name;zone.classList.add('has-file');btn.disabled=false}
+});
+btn.addEventListener('click',async()=>{
+  if(!file.files.length)return;
+  result.textContent='上传 + AI 归一化中(每条约 2 秒)...';
+  const fd=new FormData();
+  fd.append('file',file.files[0]);
+  fd.append('source_type',document.getElementById('source_type').value);
+  try{
+    const r=await fetch('/api/upload',{method:'POST',body:fd});
+    const j=await r.json();
+    if(j.ok){
+      let html=`<div style="background:#f6ffed;border:1px solid #b7eb8f;border-radius:4px;padding:12px"><b>✅ ${j.count} 条数据已归一化入库</b></div>`;
+      html+='<table style="width:100%;border-collapse:collapse;font-size:13px;margin-top:8px"><thead><tr><th style="border:1px solid #ddd;padding:6px">摘要</th><th style="border:1px solid #ddd;padding:6px">金额</th><th style="border:1px solid #ddd;padding:6px">一级</th><th style="border:1px solid #ddd;padding:6px">二级</th></tr></thead><tbody>';
+      j.results.forEach(r=>{
+        html+=`<tr><td style="border:1px solid #ddd;padding:6px">${r.summary||''}</td><td style="border:1px solid #ddd;padding:6px">${r.amount}</td><td style="border:1px solid #ddd;padding:6px">${r.level1}</td><td style="border:1px solid #ddd;padding:6px">${r.level2}</td></tr>`;
+      });
+      html+='</tbody></table>';
+      html+='<p style="margin-top:8px"><a href="/api/report/preview" style="color:#722ed1">查看管报预览 →</a></p>';
+      result.innerHTML=html;
+    }else{
+      result.innerHTML='<pre style="color:red">'+JSON.stringify(j,null,2)+'</pre>';
+    }
+  }catch(e){result.textContent='错误: '+e.message}
+});
 </script>
 </body>
 </html>"""
@@ -188,7 +232,7 @@ def index():
     return INDEX_HTML
 
 @app.route("/upload")
-def upload():
+def upload_page():
     return UPLOAD_HTML
 
 @app.route("/health")
@@ -196,7 +240,7 @@ def health():
     return jsonify({
         "status": "ok",
         "service": "finance-agent",
-        "day": "D2",
+        "day": "D3",
         "port": 5002,
         "llm_model": LLM_MODEL,
     })
@@ -255,6 +299,125 @@ def normalize_batch():
         ], temperature=0.1)
         results.append({"input": tx, "result": r})
     return jsonify({"ok": True, "count": len(results), "results": results})
+
+# === 数据上传 ===
+def parse_excel(file_storage):
+    """解析 Excel/CSV,返回 [{summary, amount, source}, ...]"""
+    filename = file_storage.filename
+    if filename.endswith(".csv"):
+        import csv
+        stream = io.TextIOWrapper(file_storage.stream, encoding="utf-8-sig")
+        reader = csv.DictReader(stream)
+        rows = []
+        for row in reader:
+            # 自动找金额列和摘要列
+            amount = 0
+            summary = ""
+            for k, v in row.items():
+                if k and v:
+                    kl = k.lower().strip()
+                    if any(x in kl for x in ["金额", "amount", "amt", "总额", "费用"]):
+                        try:
+                            amount = float(str(v).replace(",", "").replace("¥", "").strip())
+                        except (ValueError, TypeError):
+                            pass
+                    elif any(x in kl for x in ["摘要", "summary", "说明", "备注", "事由", "用途"]):
+                        summary = str(v).strip()
+            if summary or amount:
+                rows.append({"summary": summary, "amount": amount, "source": "上传"})
+        return rows
+    else:
+        try:
+            import openpyxl
+            wb = openpyxl.load_workbook(file_storage.stream, data_only=True)
+            ws = wb.active
+            headers = [str(cell.value or "").strip() for cell in ws[1]]
+            rows = []
+            for row in ws.iter_rows(min_row=2, values_only=True):
+                row_dict = dict(zip(headers, row))
+                amount = 0
+                summary = ""
+                for k, v in row_dict.items():
+                    if k and v is not None:
+                        kl = k.lower().strip()
+                        if any(x in kl for x in ["金额", "amount", "amt", "总额", "费用"]):
+                            try:
+                                amount = float(str(v).replace(",", "").replace("¥", "").strip())
+                            except (ValueError, TypeError):
+                                pass
+                        elif any(x in kl for x in ["摘要", "summary", "说明", "备注", "事由", "用途"]):
+                            summary = str(v).strip()
+                if summary or amount:
+                    rows.append({"summary": summary, "amount": amount, "source": "上传"})
+            return rows
+        except ImportError:
+            return None
+
+@app.route("/api/upload", methods=["POST"])
+def upload():
+    """上传 Excel/CSV,自动归一化并入库"""
+    f = request.files.get("file")
+    if not f:
+        return jsonify({"ok": False, "error": "file is required"})
+    source_type = request.form.get("source_type", "上传")
+    rows = parse_excel(f)
+    if rows is None:
+        return jsonify({"ok": False, "error": "openpyxl not installed"})
+    if not rows:
+        return jsonify({"ok": False, "error": "未解析到数据(请检查表头是否含'金额'和'摘要')"})
+    # 归一化 + 入库
+    conn = sqlite3.connect(DB_PATH)
+    c = conn.cursor()
+    results = []
+    for row in rows:
+        row["source"] = source_type
+        prompt = NORMALIZE_PROMPT.format(
+            rules=ACCOUNTING_RULES,
+            amount=row["amount"],
+            summary=row["summary"],
+            source=row["source"],
+        )
+        r = chat_json([
+            {"role": "system", "content": "你是财务归类助手。只返回 JSON。"},
+            {"role": "user", "content": prompt},
+        ], temperature=0.1)
+        level1 = r.get("level1", "?") if isinstance(r, dict) else "?"
+        level2 = r.get("level2", "?") if isinstance(r, dict) else "?"
+        confidence = r.get("confidence", 0) if isinstance(r, dict) else 0
+        reason = r.get("reason", "") if isinstance(r, dict) else ""
+        c.execute(
+            "INSERT INTO transactions (source, amount, summary, level1, level2, confidence, reason) VALUES (?, ?, ?, ?, ?, ?, ?)",
+            (row["source"], row["amount"], row["summary"], level1, level2, confidence, reason),
+        )
+        results.append({**row, "level1": level1, "level2": level2, "confidence": confidence})
+    conn.commit()
+    conn.close()
+    return jsonify({"ok": True, "count": len(results), "results": results})
+
+@app.route("/api/report/preview")
+def report_preview():
+    """管报预览: 按一级科目汇总"""
+    conn = sqlite3.connect(DB_PATH)
+    c = conn.cursor()
+    c.execute("SELECT level1, level2, COUNT(*) as cnt, SUM(amount) as total FROM transactions GROUP BY level1, level2 ORDER BY level1, level2")
+    rows = c.fetchall()
+    c.execute("SELECT COUNT(*) as total_count, SUM(amount) as total_amount FROM transactions")
+    overall = c.fetchone()
+    conn.close()
+    summary = {}
+    for r in rows:
+        level1, level2, cnt, total = r
+        if level1 not in summary:
+            summary[level1] = {"total": 0, "count": 0, "items": []}
+        summary[level1]["total"] += total or 0
+        summary[level1]["count"] += cnt
+        summary[level1]["items"].append({"level2": level2, "count": cnt, "total": round(total or 0, 2)})
+    return jsonify({
+        "ok": True,
+        "total_count": overall[0],
+        "total_amount": round(overall[1] or 0, 2),
+        "summary": {k: {**v, "total": round(v["total"], 2)} for k, v in summary.items()},
+    })
 
 @app.route("/api/report", methods=["POST"])
 def report():

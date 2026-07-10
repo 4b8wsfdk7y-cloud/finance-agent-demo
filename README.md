@@ -1,4 +1,12 @@
 ## 📝 更新日志
+### 2026-07-10 (D3)
+- Excel/CSV 上传接口 (/api/upload,支持 xlsx/xls/csv)
+- 多数据源选择(报销/对公支付/工资)
+- 自动表头识别(金额/摘要列)
+- SQLite transactions 表存储归一化结果
+- 管报预览 API (/api/report/preview,按一级科目汇总)
+- openpyxl 依赖
+- 测试: 10 条 mock 报销全部归一化正确,管报 4 科目汇总
 
 ### 2026-07-10 (D2)
 - CherryIN API 客户端 (cherry_client.py)
