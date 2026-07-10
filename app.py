@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""财务 Agent — 管报底座 + 绩效试算 Demo (D3)"""
+"""财务 Agent — 管报底座 + 绩效试算 Demo (D4)"""
 from flask import Flask, request, jsonify, render_template_string
 import os
 import json
@@ -7,6 +7,7 @@ import sqlite3
 import io
 from dotenv import load_dotenv
 from cherry_client import chat, chat_json, embed, test_connection
+from feishu_client import list_chats as feishu_list_chats, send_post as feishu_send_post
 
 load_dotenv()
 
@@ -90,6 +91,161 @@ NORMALIZE_PROMPT = """你是财务归类助手。根据以下流水信息,归一
 }}
 """
 
+# === D4: AI 简评 Prompt ===
+REPORT_COMMENTARY_PROMPT = """你是财务分析师。根据以下管报汇总数据,写出 3-5 条简短点评。
+
+要求:
+- 指出占比最高的科目
+- 发现异常波动或值得关注的点
+- 给出 1-2 条优化建议
+- 每条不超过 50 字
+- 用中文,口语化,像同事汇报
+
+管报数据:
+{report_data}
+"""
+
+# === D4: 管报页面 ===
+REPORT_HTML = """<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>管报预览 · 财务 Agent</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Inter',system-ui,sans-serif;background:#f0f2f5;color:#1a1a2e}
+.nav{background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);padding:20px 40px;display:flex;justify-content:space-between;align-items:center}
+.nav h1{color:#fff;font-size:20px}
+.nav a{color:#fff;text-decoration:none;margin-left:20px;opacity:.9}
+.nav a:hover{opacity:1}
+.container{max-width:1100px;margin:0 auto;padding:30px 20px}
+.card{background:#fff;border-radius:16px;padding:24px;margin-bottom:20px;box-shadow:0 2px 12px rgba(0,0,0,.06)}
+.card h2{font-size:18px;margin-bottom:16px;color:#333}
+.stat-row{display:flex;gap:16px;margin-bottom:8px}
+.stat-box{flex:1;background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);border-radius:12px;padding:20px;color:#fff}
+.stat-box .label{font-size:12px;opacity:.8}
+.stat-box .value{font-size:26px;font-weight:700;margin-top:4px}
+table{width:100%;border-collapse:collapse}
+th{text-align:left;padding:10px;background:#f7f8fc;color:#555;font-size:13px;border-bottom:2px solid #e8e8f0}
+td{padding:10px;border-bottom:1px solid #f0f0f5;font-size:14px}
+.l1-row{background:#f7f8fc;font-weight:600}
+.bar-container{width:80px;height:8px;background:#e8e8f0;border-radius:4px;overflow:hidden;display:inline-block;vertical-align:middle}
+.bar-fill{height:100%;background:linear-gradient(90deg,#667eea,#764ba2);border-radius:4px}
+.commentary{background:#fff8e6;border-left:4px solid #f0a020;padding:16px 20px;border-radius:8px;margin-top:8px}
+.commentary p{margin:6px 0;line-height:1.6}
+.commentary .tag{display:inline-block;background:#f0a020;color:#fff;font-size:11px;padding:2px 8px;border-radius:10px;margin-right:6px}
+.feishu-btn{background:linear-gradient(135deg,#3370ff,#5286ff);color:#fff;border:none;padding:10px 24px;border-radius:8px;font-size:14px;cursor:pointer;font-family:inherit}
+.feishu-btn:hover{opacity:.9;transform:translateY(-1px)}
+.feishu-btn:disabled{opacity:.5;cursor:not-allowed}
+.chat-select{padding:8px 12px;border:1px solid #ddd;border-radius:8px;font-size:14px;margin-right:8px;min-width:200px}
+.result-msg{margin-top:10px;padding:10px;border-radius:8px;font-size:13px;display:none}
+.result-msg.success{background:#e6f7e6;color:#2d8c2d;display:block}
+.result-msg.error{background:#fce8e8;color:#c92a2a;display:block}
+.loading{text-align:center;padding:40px;color:#888}
+.loading .spin{display:inline-block;width:32px;height:32px;border:3px solid #e8e8f0;border-top:3px solid #667eea;border-radius:50%;animation:spin 1s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+</style>
+</head>
+<body>
+<div class="nav">
+    <h1>💰 财务 Agent</h1>
+    <div>
+        <a href="/">首页</a>
+        <a href="/upload">上传</a>
+        <a href="/report">管报</a>
+    </div>
+</div>
+<div class="container">
+    <div class="card">
+        <h2>📈 总览</h2>
+        <div class="stat-row">
+            <div class="stat-box"><div class="label">总笔数</div><div class="value" id="total-count">-</div></div>
+            <div class="stat-box"><div class="label">总金额</div><div class="value" id="total-amount">-</div></div>
+            <div class="stat-box"><div class="label">科目数</div><div class="value" id="cat-count">-</div></div>
+        </div>
+    </div>
+    <div class="card">
+        <h2>📋 科目汇总</h2>
+        <table>
+            <thead><tr><th>一级科目</th><th>二级科目</th><th>笔数</th><th>金额</th><th>占比</th></tr></thead>
+            <tbody id="report-tbody"></tbody>
+        </table>
+    </div>
+    <div class="card">
+        <h2>🤖 AI 简评</h2>
+        <div id="commentary-area"><div class="loading"><div class="spin"></div><p style="margin-top:10px">AI 正在分析管报...</p></div></div>
+    </div>
+    <div class="card">
+        <h2>📤 发送到飞书</h2>
+        <p style="color:#666;font-size:13px;margin-bottom:12px">选择群聊后,把管报 + AI 简评发到飞书群</p>
+        <select class="chat-select" id="chat-select"><option value="">加载群聊中...</option></select>
+        <button class="feishu-btn" id="send-feishu" disabled>发送到飞书</button>
+        <div class="result-msg" id="feishu-result"></div>
+    </div>
+</div>
+<script>
+async function loadReport(){
+    const r=await fetch('/api/report/preview');
+    const d=await r.json();
+    if(!d.ok)return;
+    document.getElementById('total-count').textContent=d.total_count+' 笔';
+    document.getElementById('total-amount').textContent='¥'+d.total_amount.toLocaleString();
+    document.getElementById('cat-count').textContent=Object.keys(d.summary).length+' 个';
+    const tbody=document.getElementById('report-tbody');
+    const gt=d.total_amount;
+    let html='';
+    for(const[l1,info]of Object.entries(d.summary)){
+        html+='<tr class="l1-row"><td>'+l1+'</td><td>—</td><td>'+info.count+'</td><td>¥'+info.total.toLocaleString()+'</td><td>'+((info.total/gt)*100).toFixed(1)+'%</td></tr>';
+        for(const item of info.items){
+            html+='<tr><td>└</td><td>'+item.level2+'</td><td>'+item.count+'</td><td>¥'+item.total.toLocaleString()+'</td><td><div class="bar-container"><div class="bar-fill" style="width:'+((item.total/info.total)*100)+'%"></div></div></td></tr>';
+        }
+    }
+    tbody.innerHTML=html;
+}
+async function loadCommentary(){
+    const r=await fetch('/api/report/commentary',{method:'POST'});
+    const d=await r.json();
+    const area=document.getElementById('commentary-area');
+    if(d.ok&&d.commentary){
+        area.innerHTML='<div class="commentary">'+d.commentary.split('\\n').map(p=>p.trim()?'<p><span class="tag">💡</span>'+p+'</p>':'').join('')+'</div>';
+    }else{
+        area.innerHTML='<p style="color:#999">'+(d.error||'简评生成失败')+'</p>';
+    }
+}
+async function loadChats(){
+    const r=await fetch('/api/feishu/chats');
+    const d=await r.json();
+    const sel=document.getElementById('chat-select');
+    if(d.ok&&d.chats&&d.chats.length>0){
+        sel.innerHTML=d.chats.map(c=>'<option value="'+c.chat_id+'">'+c.name+'</option>').join('');
+        document.getElementById('send-feishu').disabled=false;
+    }else{
+        sel.innerHTML='<option value="">无可用群聊 ('+(d.error||'未知错误')+')</option>';
+    }
+}
+document.getElementById('send-feishu').addEventListener('click',async()=>{
+    const chatId=document.getElementById('chat-select').value;
+    if(!chatId)return;
+    const btn=document.getElementById('send-feishu');
+    const msg=document.getElementById('feishu-result');
+    btn.disabled=true;btn.textContent='发送中...';
+    msg.className='result-msg';
+    try{
+        const r=await fetch('/api/report/feishu',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({chat_id:chatId})});
+        const d=await r.json();
+        if(d.ok){msg.className='result-msg success';msg.textContent='✅ 已发送到飞书群';}
+        else{msg.className='result-msg error';msg.textContent='❌ '+(d.error||'发送失败');}
+    }catch(e){msg.className='result-msg error';msg.textContent='❌ '+e.message;}
+    btn.disabled=false;btn.textContent='发送到飞书';
+});
+loadReport();loadCommentary();loadChats();
+</script>
+</body>
+</html>
+"""
+
 # === 页面 ===
 INDEX_HTML = """<!DOCTYPE html>
 <html lang="zh">
@@ -149,7 +305,7 @@ a.btn{display:inline-flex;align-items:center;gap:6px;padding:12px 28px;border-ra
     <div class="hero-content">
       <h1>💰 财务 Agent</h1>
       <p class="subtitle">管报底座 · 绩效试算 · 智能归一化</p>
-      <span class="badge">🚀 D3 已上线 · 多数据源 + 管报预览</span>
+      <span class="badge">🚀 D4 已上线 · 管报 + AI 简评 + 飞书输出</span>
     </div>
   </div>
 
@@ -162,7 +318,7 @@ a.btn{display:inline-flex;align-items:center;gap:6px;padding:12px 28px;border-ra
     <div class="stat-card">
       <div class="stat-icon" style="background:#f0f5ff">📊</div>
       <div class="stat-label">当前进度</div>
-      <div class="stat-value">D3</div>
+      <div class="stat-value">D4</div>
     </div>
     <div class="stat-card">
       <div class="stat-icon" style="background:#f6ffed">✅</div>
@@ -182,7 +338,7 @@ a.btn{display:inline-flex;align-items:center;gap:6px;padding:12px 28px;border-ra
       <div class="feat-icon">📊</div>
       <h3>管报底座</h3>
       <p>上传报销 / 对公支付 / 工资 Excel → AI 字段归一化 → 自动生成飞书文档管报</p>
-      <span class="tag tag-done">✅ D3 上传 + 预览已实现</span>
+      <span class="tag tag-done">✅ D4 管报 + AI 简评 + 飞书输出已实现</span>
     </div>
     <div class="feature-item">
       <div class="feat-icon">🎯</div>
@@ -194,8 +350,8 @@ a.btn{display:inline-flex;align-items:center;gap:6px;padding:12px 28px;border-ra
 
   <div class="btn-row" style="margin-top:24px">
     <a class="btn btn-primary" href="/upload">📤 前往上传</a>
-    <a class="btn btn-accent" href="/api/test-llm" target="_blank">⚡ 测试 LLM</a>
-    <a class="btn btn-secondary" href="/api/report/preview" target="_blank">📈 管报预览</a>
+    <a class="btn btn-accent" href="/report">📈 管报预览</a>
+    <a class="btn btn-secondary" href="/api/test-llm" target="_blank">⚡ 测试 LLM</a>
   </div>
 </div>
 </body>
@@ -370,7 +526,7 @@ def health():
     return jsonify({
         "status": "ok",
         "service": "finance-agent",
-        "day": "D3",
+        "day": "D4",
         "port": 5002,
         "llm_model": LLM_MODEL,
     })
@@ -549,10 +705,106 @@ def report_preview():
         "summary": {k: {**v, "total": round(v["total"], 2)} for k, v in summary.items()},
     })
 
-@app.route("/api/report", methods=["POST"])
-def report():
-    """管报生成 (D4 实现)"""
-    return jsonify({"ok": True, "message": "D4 实现"})
+# === D4: 管报页面 + AI 简评 + 飞书输出 ===
+@app.route("/report")
+def report_page():
+    """管报预览页面"""
+    return REPORT_HTML
+
+@app.route("/api/report/commentary", methods=["POST"])
+def report_commentary():
+    """AI 简评: 基于管报数据生成 3-5 条点评"""
+    conn = sqlite3.connect(DB_PATH)
+    c = conn.cursor()
+    c.execute("SELECT level1, level2, COUNT(*) as cnt, SUM(amount) as total FROM transactions GROUP BY level1, level2 ORDER BY level1, level2")
+    rows = c.fetchall()
+    c.execute("SELECT COUNT(*) as total_count, SUM(amount) as total_amount FROM transactions")
+    overall = c.fetchone()
+    conn.close()
+    if not rows:
+        return jsonify({"ok": False, "error": "暂无数据,请先上传"})
+
+    report_lines = [f"总笔数: {overall[0]}, 总金额: ¥{overall[1] or 0:,.2f}"]
+    cur_l1 = None
+    for level1, level2, cnt, total in rows:
+        if level1 != cur_l1:
+            report_lines.append(f"\n【{level1}】")
+            cur_l1 = level1
+        report_lines.append(f"  {level2}: {cnt}笔, ¥{total or 0:,.2f}")
+    report_data = "\n".join(report_lines)
+
+    prompt = REPORT_COMMENTARY_PROMPT.format(report_data=report_data)
+    result = chat([
+        {"role": "system", "content": "你是财务分析师,正在给同事做管报简评。直接输出 3-5 行简评,每行一个要点。"},
+        {"role": "user", "content": prompt},
+    ], temperature=0.3)
+    commentary = result.get("content", "").strip()
+    return jsonify({"ok": True, "commentary": commentary})
+
+@app.route("/api/feishu/chats")
+def feishu_chats():
+    """列出 Bot 所在的飞书群聊"""
+    return jsonify(feishu_list_chats())
+
+@app.route("/api/report/feishu", methods=["POST"])
+def report_feishu():
+    """把管报 + AI 简评发到飞书群"""
+    data = request.json or {}
+    chat_id = data.get("chat_id", "")
+    if not chat_id:
+        return jsonify({"ok": False, "error": "chat_id is required"})
+
+    conn = sqlite3.connect(DB_PATH)
+    c = conn.cursor()
+    c.execute("SELECT level1, level2, COUNT(*) as cnt, SUM(amount) as total FROM transactions GROUP BY level1, level2 ORDER BY level1, level2")
+    rows = c.fetchall()
+    c.execute("SELECT COUNT(*) as total_count, SUM(amount) as total_amount FROM transactions")
+    overall = c.fetchone()
+    conn.close()
+    if not rows:
+        return jsonify({"ok": False, "error": "暂无数据"})
+
+    # 构建富文本
+    paragraphs = [[
+        {"tag": "text", "text": f"总笔数 {overall[0]}, 总金额 ¥{overall[1] or 0:,.2f}\n"},
+    ]]
+    cur_l1 = None
+    cur_items = []
+    for level1, level2, cnt, total in rows:
+        if level1 != cur_l1:
+            if cur_items:
+                paragraphs.append(cur_items)
+            cur_l1 = level1
+            cur_items = [{"tag": "text", "text": f"\n【{level1}】\n", "style": ["bold"]}]
+        cur_items.append({"tag": "text", "text": f"  {level2}: {cnt}笔 ¥{total or 0:,.2f}\n"})
+    if cur_items:
+        paragraphs.append(cur_items)
+
+    r1 = feishu_send_post(chat_id, "📊 管报预览", paragraphs)
+    if r1.get("code") != 0:
+        return jsonify({"ok": False, "error": r1.get("msg", "send failed"), "raw": r1})
+
+    # 生成 AI 简评
+    report_lines = [f"总笔数: {overall[0]}, 总金额: ¥{overall[1] or 0:,.2f}"]
+    cur_l1 = None
+    for level1, level2, cnt, total in rows:
+        if level1 != cur_l1:
+            report_lines.append(f"\n【{level1}】")
+            cur_l1 = level1
+        report_lines.append(f"  {level2}: {cnt}笔, ¥{total or 0:,.2f}")
+    report_data = "\n".join(report_lines)
+    prompt = REPORT_COMMENTARY_PROMPT.format(report_data=report_data)
+    result = chat([
+        {"role": "system", "content": "你是财务分析师,正在给同事做管报简评。直接输出 3-5 行简评,每行一个要点。"},
+        {"role": "user", "content": prompt},
+    ], temperature=0.3)
+    commentary = result.get("content", "").strip()
+
+    if commentary:
+        comm_paragraphs = [[{"tag": "text", "text": commentary}]]
+        r2 = feishu_send_post(chat_id, "🤖 AI 简评", comm_paragraphs)
+        return jsonify({"ok": True, "report_sent": True, "commentary_sent": r2.get("code") == 0, "commentary": commentary})
+    return jsonify({"ok": True, "report_sent": True, "commentary_sent": False})
 
 @app.route("/api/performance", methods=["POST"])
 def performance():

@@ -1,4 +1,12 @@
 ## 📝 更新日志
+### 2026-07-10 (D4)
+- 管报预览页面 (/report) — 科目汇总表 + 占比柱状图
+- AI 简评引擎 (/api/report/commentary) — 基于 LLM 生成 3-5 条财务点评
+- 飞书 Bot 集成 (feishu_client.py + lark-cli)
+- 管报发送到飞书群 (/api/report/feishu) — 富文本格式 + AI 简评
+- 飞书群聊列表 (/api/feishu/chats)
+- 测试: 10 条报销数据 → 管报汇总 + AI 简评(云服务费占比 30%、团队建设重复记账、招待费偏高) → 飞书群收到富文本管报 + 简评
+
 ### 2026-07-10 (D3)
 - Excel/CSV 上传接口 (/api/upload,支持 xlsx/xls/csv)
 - 多数据源选择(报销/对公支付/工资)
