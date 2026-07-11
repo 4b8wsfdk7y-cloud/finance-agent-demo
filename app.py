@@ -12,6 +12,7 @@ from feishu_client import list_chats as feishu_list_chats, send_post as feishu_s
 load_dotenv()
 
 app = Flask(__name__)
+app.config["MAX_CONTENT_LENGTH"] = 16 * 1024 * 1024  # 16MB
 
 # === 配置 ===
 CHERRYIN_API_KEY = os.environ.get("CHERRYIN_API_KEY", "")
@@ -186,6 +187,7 @@ td{padding:10px;border-bottom:1px solid #f0f0f5;font-size:14px}
     </div>
 </div>
 <script>
+function escapeHtml(s){if(s==null)return '';return String(s).replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]))}
 async function loadReport(){
     const r=await fetch('/api/report/preview');
     const d=await r.json();
@@ -197,9 +199,9 @@ async function loadReport(){
     const gt=d.total_amount;
     let html='';
     for(const[l1,info]of Object.entries(d.summary)){
-        html+='<tr class="l1-row"><td>'+l1+'</td><td>—</td><td>'+info.count+'</td><td>¥'+info.total.toLocaleString()+'</td><td>'+((info.total/gt)*100).toFixed(1)+'%</td></tr>';
+        html+='<tr class="l1-row"><td>'+escapeHtml(l1)+'</td><td>—</td><td>'+info.count+'</td><td>¥'+info.total.toLocaleString()+'</td><td>'+((info.total/gt)*100).toFixed(1)+'%</td></tr>';
         for(const item of info.items){
-            html+='<tr><td>└</td><td>'+item.level2+'</td><td>'+item.count+'</td><td>¥'+item.total.toLocaleString()+'</td><td><div class="bar-container"><div class="bar-fill" style="width:'+((item.total/info.total)*100)+'%"></div></div></td></tr>';
+            html+='<tr><td>└</td><td>'+escapeHtml(item.level2)+'</td><td>'+item.count+'</td><td>¥'+item.total.toLocaleString()+'</td><td><div class="bar-container"><div class="bar-fill" style="width:'+((item.total/info.total)*100)+'%"></div></div></td></tr>';
         }
     }
     tbody.innerHTML=html;
@@ -209,20 +211,25 @@ async function loadCommentary(){
     const d=await r.json();
     const area=document.getElementById('commentary-area');
     if(d.ok&&d.commentary){
-        area.innerHTML='<div class="commentary">'+d.commentary.split('\\n').map(p=>p.trim()?'<p><span class="tag">💡</span>'+p+'</p>':'').join('')+'</div>';
+        area.innerHTML='<div class="commentary">'+d.commentary.split('\\n').map(p=>p.trim()?'<p><span class="tag">💡</span>'+escapeHtml(p)+'</p>':'').join('')+'</div>';
     }else{
-        area.innerHTML='<p style="color:#999">'+(d.error||'简评生成失败')+'</p>';
+        area.innerHTML='<p style="color:#999">'+escapeHtml(d.error||'简评生成失败')+'</p>';
     }
 }
 async function loadChats(){
-    const r=await fetch('/api/feishu/chats');
-    const d=await r.json();
-    const sel=document.getElementById('chat-select');
-    if(d.ok&&d.chats&&d.chats.length>0){
-        sel.innerHTML=d.chats.map(c=>'<option value="'+c.chat_id+'">'+c.name+'</option>').join('');
-        document.getElementById('send-feishu').disabled=false;
-    }else{
-        sel.innerHTML='<option value="">无可用群聊 ('+(d.error||'未知错误')+')</option>';
+    try{
+        const r=await fetch('/api/feishu/chats');
+        const d=await r.json();
+        const sel=document.getElementById('chat-select');
+        if(d.ok&&d.chats&&d.chats.length>0){
+            sel.innerHTML=d.chats.map(c=>'<option value="'+escapeHtml(c.chat_id)+'">'+escapeHtml(c.name)+'</option>').join('');
+            document.getElementById('send-feishu').disabled=false;
+        }else{
+            sel.innerHTML='<option value="">无可用群聊 ('+escapeHtml(d.error||'未知错误')+')</option>';
+        }
+    }catch(e){
+        const sel=document.getElementById('chat-select');
+        sel.innerHTML='<option value="">加载失败 ('+escapeHtml(e.message)+')</option>';
     }
 }
 document.getElementById('send-feishu').addEventListener('click',async()=>{
@@ -455,6 +462,7 @@ a:hover{text-decoration:underline}
   </div>
 </div>
 <script>
+function escapeHtml(s){if(s==null)return '';return String(s).replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]))}
 let selectedSource='报销';
 document.querySelectorAll('.source-option').forEach(opt=>{
   opt.addEventListener('click',()=>{
@@ -478,7 +486,7 @@ zone.addEventListener('drop',e=>{
 file.addEventListener('change',showFile);
 function showFile(){
   if(file.files.length){
-    zone.innerHTML='<div class="drop-icon">✅</div><div class="drop-text">'+file.files[0].name+'</div><div class="drop-hint">点击重新选择</div>';
+    zone.innerHTML='<div class="drop-icon">✅</div><div class="drop-text">'+escapeHtml(file.files[0].name)+'</div><div class="drop-hint">点击重新选择</div>';
     zone.classList.add('has-file');
     btn.disabled=false;
   }
@@ -498,15 +506,15 @@ btn.addEventListener('click',async()=>{
       html+='<table class="result-table"><thead><tr><th>摘要</th><th>金额</th><th>一级</th><th>二级</th></tr></thead><tbody>';
       j.results.forEach(r=>{
         const cls=lvlClass[r.level1]||'lvl-dev';
-        html+='<tr><td>'+r.summary+'</td><td>¥'+r.amount+'</td><td><span class="lvl-tag '+cls+'">'+r.level1+'</span></td><td>'+r.level2+'</td></tr>';
+        html+='<tr><td>'+escapeHtml(r.summary)+'</td><td>¥'+escapeHtml(String(r.amount))+'</td><td><span class="lvl-tag '+cls+'">'+escapeHtml(r.level1)+'</span></td><td>'+escapeHtml(r.level2)+'</td></tr>';
       });
       html+='</tbody></table>';
       html+='<div style="text-align:center;margin-top:12px"><a href="/api/report/preview" target="_blank" style="color:#722ed1;font-weight:600">📈 查看管报预览 →</a></div>';
       result.innerHTML=html;
     }else{
-      result.innerHTML='<div style="color:red;padding:16px;background:#fff0f0;border-radius:8px">❌ '+(j.error||JSON.stringify(j))+'</div>';
+      result.innerHTML='<div style="color:red;padding:16px;background:#fff0f0;border-radius:8px">❌ '+escapeHtml(j.error||JSON.stringify(j))+'</div>';
     }
-  }catch(e){result.innerHTML='<div style="color:red">错误: '+e.message+'</div>'}
+  }catch(e){result.innerHTML='<div style="color:red">错误: '+escapeHtml(e.message)+'</div>'}
 });
 </script>
 </body>
@@ -541,7 +549,7 @@ def test_llm():
 @app.route("/api/normalize", methods=["POST"])
 def normalize():
     """字段归一化: 输入流水,输出归一化科目"""
-    data = request.json or {}
+    data = request.get_json(silent=True) or {}
     amount = data.get("amount", 0)
     summary = data.get("summary", "")
     source = data.get("source", "未知")
@@ -566,7 +574,7 @@ def normalize():
 @app.route("/api/normalize/batch", methods=["POST"])
 def normalize_batch():
     """批量归一化"""
-    data = request.json or {}
+    data = request.get_json(silent=True) or {}
     transactions = data.get("transactions", [])
     results = []
     for tx in transactions:
@@ -652,44 +660,54 @@ def upload():
     if not rows:
         return jsonify({"ok": False, "error": "未解析到数据(请检查表头是否含'金额'和'摘要')"})
     # 归一化 + 入库
-    conn = sqlite3.connect(DB_PATH)
-    c = conn.cursor()
     results = []
-    for row in rows:
-        row["source"] = source_type
-        prompt = NORMALIZE_PROMPT.format(
-            rules=ACCOUNTING_RULES,
-            amount=row["amount"],
-            summary=row["summary"],
-            source=row["source"],
-        )
-        r = chat_json([
-            {"role": "system", "content": "你是财务归类助手。只返回 JSON。"},
-            {"role": "user", "content": prompt},
-        ], temperature=0.1)
-        level1 = r.get("level1", "?") if isinstance(r, dict) else "?"
-        level2 = r.get("level2", "?") if isinstance(r, dict) else "?"
-        confidence = r.get("confidence", 0) if isinstance(r, dict) else 0
-        reason = r.get("reason", "") if isinstance(r, dict) else ""
-        c.execute(
-            "INSERT INTO transactions (source, amount, summary, level1, level2, confidence, reason) VALUES (?, ?, ?, ?, ?, ?, ?)",
-            (row["source"], row["amount"], row["summary"], level1, level2, confidence, reason),
-        )
-        results.append({**row, "level1": level1, "level2": level2, "confidence": confidence})
-    conn.commit()
-    conn.close()
-    return jsonify({"ok": True, "count": len(results), "results": results})
+    failures = []
+    conn = sqlite3.connect(DB_PATH)
+    try:
+        c = conn.cursor()
+        for i, row in enumerate(rows):
+            row["source"] = source_type
+            prompt = NORMALIZE_PROMPT.format(
+                rules=ACCOUNTING_RULES,
+                amount=row["amount"],
+                summary=row["summary"],
+                source=row["source"],
+            )
+            r = chat_json([
+                {"role": "system", "content": "你是财务归类助手。只返回 JSON。"},
+                {"role": "user", "content": prompt},
+            ], temperature=0.1)
+            if not isinstance(r, dict) or r.get("error") or "level1" not in r:
+                failures.append({"row": i + 1, "summary": row["summary"], "error": r.get("error", "missing level1") if isinstance(r, dict) else "invalid response"})
+                # 失败行不入库,跳过
+                results.append({**row, "level1": "未归类", "level2": "未归类", "confidence": 0, "reason": r.get("error", "LLM 返回异常") if isinstance(r, dict) else "LLM 返回非 dict", "failed": True})
+                continue
+            level1 = r.get("level1", "?")
+            level2 = r.get("level2", "?")
+            confidence = r.get("confidence", 0)
+            reason = r.get("reason", "")
+            c.execute(
+                "INSERT INTO transactions (source, amount, summary, level1, level2, confidence, reason) VALUES (?, ?, ?, ?, ?, ?, ?)",
+                (row["source"], row["amount"], row["summary"], level1, level2, confidence, reason),
+            )
+            results.append({**row, "level1": level1, "level2": level2, "confidence": confidence, "reason": reason})
+        conn.commit()
+    finally:
+        conn.close()
+    return jsonify({"ok": True, "count": len(results), "success_count": len([r for r in results if not r.get("failed")]), "fail_count": len(failures), "results": results, "failures": failures})
 
 @app.route("/api/report/preview")
 def report_preview():
     """管报预览: 按一级科目汇总"""
     conn = sqlite3.connect(DB_PATH)
-    c = conn.cursor()
-    c.execute("SELECT level1, level2, COUNT(*) as cnt, SUM(amount) as total FROM transactions GROUP BY level1, level2 ORDER BY level1, level2")
-    rows = c.fetchall()
-    c.execute("SELECT COUNT(*) as total_count, SUM(amount) as total_amount FROM transactions")
-    overall = c.fetchone()
-    conn.close()
+    try:
+        c = conn.cursor()
+        c.execute("SELECT level1, level2, COUNT(*) as cnt, SUM(amount) as total FROM transactions GROUP BY level1, level2 ORDER BY level1, level2")
+        rows = c.fetchall()
+        c.execute("SELECT COUNT(*) as total_count, SUM(amount) as total_amount FROM transactions")
+        overall = c.fetchone()
+    finally:
+        conn.close()
     summary = {}
     for r in rows:
         level1, level2, cnt, total = r
@@ -706,6 +724,53 @@ def report_preview():
     })
 
 # === D4: 管报页面 + AI 简评 + 飞书输出 ===
+# 简评缓存(进程级,报表 hash → commentary)
+_COMMENTARY_CACHE = {}
+
+def _get_report_data():
+    """取管报数据,返回 (rows, overall) 或 (None, None)"""
+    conn = sqlite3.connect(DB_PATH)
+    try:
+        c = conn.cursor()
+        c.execute("SELECT level1, level2, COUNT(*) as cnt, SUM(amount) as total FROM transactions GROUP BY level1, level2 ORDER BY level1, level2")
+        rows = c.fetchall()
+        c.execute("SELECT COUNT(*) as total_count, SUM(amount) as total_amount FROM transactions")
+        overall = c.fetchone()
+    finally:
+        conn.close()
+    if not rows:
+        return None, None
+    return rows, overall
+
+def _build_report_text(rows, overall):
+    """构建管报文本(供 AI 简评用)"""
+    lines = [f"总笔数: {overall[0]}, 总金额: ¥{overall[1] or 0:,.2f}"]
+    cur_l1 = None
+    for level1, level2, cnt, total in rows:
+        if level1 != cur_l1:
+            lines.append(f"\n【{level1}】")
+            cur_l1 = level1
+        lines.append(f"  {level2}: {cnt}笔, ¥{total or 0:,.2f}")
+    return "\n".join(lines)
+
+def _generate_commentary(rows, overall):
+    """生成 AI 简评(带缓存,避免重复调 LLM)"""
+    report_data = _build_report_text(rows, overall)
+    cache_key = hash(report_data)
+    if cache_key in _COMMENTARY_CACHE:
+        return _COMMENTARY_CACHE[cache_key]
+    prompt = REPORT_COMMENTARY_PROMPT.format(report_data=report_data)
+    result = chat([
+        {"role": "system", "content": "你是财务分析师,正在给同事做管报简评。直接输出 3-5 行简评,每行一个要点。"},
+        {"role": "user", "content": prompt},
+    ], temperature=0.3)
+    if result.get("error"):
+        return None, result["error"]
+    commentary = result.get("content", "").strip()
+    if commentary:
+        _COMMENTARY_CACHE[cache_key] = commentary
+    return commentary, None
+
 @app.route("/report")
 def report_page():
     """管报预览页面"""
@@ -714,31 +779,12 @@ def report_page():
 @app.route("/api/report/commentary", methods=["POST"])
 def report_commentary():
     """AI 简评: 基于管报数据生成 3-5 条点评"""
-    conn = sqlite3.connect(DB_PATH)
-    c = conn.cursor()
-    c.execute("SELECT level1, level2, COUNT(*) as cnt, SUM(amount) as total FROM transactions GROUP BY level1, level2 ORDER BY level1, level2")
-    rows = c.fetchall()
-    c.execute("SELECT COUNT(*) as total_count, SUM(amount) as total_amount FROM transactions")
-    overall = c.fetchone()
-    conn.close()
-    if not rows:
+    rows, overall = _get_report_data()
+    if rows is None:
         return jsonify({"ok": False, "error": "暂无数据,请先上传"})
-
-    report_lines = [f"总笔数: {overall[0]}, 总金额: ¥{overall[1] or 0:,.2f}"]
-    cur_l1 = None
-    for level1, level2, cnt, total in rows:
-        if level1 != cur_l1:
-            report_lines.append(f"\n【{level1}】")
-            cur_l1 = level1
-        report_lines.append(f"  {level2}: {cnt}笔, ¥{total or 0:,.2f}")
-    report_data = "\n".join(report_lines)
-
-    prompt = REPORT_COMMENTARY_PROMPT.format(report_data=report_data)
-    result = chat([
-        {"role": "system", "content": "你是财务分析师,正在给同事做管报简评。直接输出 3-5 行简评,每行一个要点。"},
-        {"role": "user", "content": prompt},
-    ], temperature=0.3)
-    commentary = result.get("content", "").strip()
+    commentary, err = _generate_commentary(rows, overall)
+    if err:
+        return jsonify({"ok": False, "error": f"AI 简评生成失败: {err}"})
     return jsonify({"ok": True, "commentary": commentary})
 
 @app.route("/api/feishu/chats")
@@ -749,22 +795,16 @@ def feishu_chats():
 @app.route("/api/report/feishu", methods=["POST"])
 def report_feishu():
     """把管报 + AI 简评发到飞书群"""
-    data = request.json or {}
+    data = request.get_json(silent=True) or {}
     chat_id = data.get("chat_id", "")
     if not chat_id:
         return jsonify({"ok": False, "error": "chat_id is required"})
 
-    conn = sqlite3.connect(DB_PATH)
-    c = conn.cursor()
-    c.execute("SELECT level1, level2, COUNT(*) as cnt, SUM(amount) as total FROM transactions GROUP BY level1, level2 ORDER BY level1, level2")
-    rows = c.fetchall()
-    c.execute("SELECT COUNT(*) as total_count, SUM(amount) as total_amount FROM transactions")
-    overall = c.fetchone()
-    conn.close()
-    if not rows:
+    rows, overall = _get_report_data()
+    if rows is None:
         return jsonify({"ok": False, "error": "暂无数据"})
 
-    # 构建富文本
+    # 构建管报富文本
     paragraphs = [[
         {"tag": "text", "text": f"总笔数 {overall[0]}, 总金额 ¥{overall[1] or 0:,.2f}\n"},
     ]]
@@ -775,36 +815,27 @@ def report_feishu():
             if cur_items:
                 paragraphs.append(cur_items)
             cur_l1 = level1
-            cur_items = [{"tag": "text", "text": f"\n【{level1}】\n", "style": ["bold"]}]
+            cur_items = [{"tag": "text", "text": f"\n【{level1}】\n"}]
         cur_items.append({"tag": "text", "text": f"  {level2}: {cnt}笔 ¥{total or 0:,.2f}\n"})
     if cur_items:
         paragraphs.append(cur_items)
 
+    # 1. 发送管报
     r1 = feishu_send_post(chat_id, "📊 管报预览", paragraphs)
-    if r1.get("code") != 0:
-        return jsonify({"ok": False, "error": r1.get("msg", "send failed"), "raw": r1})
+    if not r1.get("ok"):
+        return jsonify({"ok": False, "error": f"管报发送失败: {r1.get('error', 'unknown')}", "report_sent": False})
 
-    # 生成 AI 简评
-    report_lines = [f"总笔数: {overall[0]}, 总金额: ¥{overall[1] or 0:,.2f}"]
-    cur_l1 = None
-    for level1, level2, cnt, total in rows:
-        if level1 != cur_l1:
-            report_lines.append(f"\n【{level1}】")
-            cur_l1 = level1
-        report_lines.append(f"  {level2}: {cnt}笔, ¥{total or 0:,.2f}")
-    report_data = "\n".join(report_lines)
-    prompt = REPORT_COMMENTARY_PROMPT.format(report_data=report_data)
-    result = chat([
-        {"role": "system", "content": "你是财务分析师,正在给同事做管报简评。直接输出 3-5 行简评,每行一个要点。"},
-        {"role": "user", "content": prompt},
-    ], temperature=0.3)
-    commentary = result.get("content", "").strip()
+    # 2. 生成 AI 简评(带缓存,不重复调 LLM)
+    commentary, err = _generate_commentary(rows, overall)
+    if err or not commentary:
+        return jsonify({"ok": True, "report_sent": True, "commentary_sent": False, "commentary_error": err or "empty commentary"})
 
-    if commentary:
-        comm_paragraphs = [[{"tag": "text", "text": commentary}]]
-        r2 = feishu_send_post(chat_id, "🤖 AI 简评", comm_paragraphs)
-        return jsonify({"ok": True, "report_sent": True, "commentary_sent": r2.get("code") == 0, "commentary": commentary})
-    return jsonify({"ok": True, "report_sent": True, "commentary_sent": False})
+    # 3. 发送简评
+    comm_paragraphs = [[{"tag": "text", "text": commentary}]]
+    r2 = feishu_send_post(chat_id, "🤖 AI 简评", comm_paragraphs)
+    if not r2.get("ok"):
+        return jsonify({"ok": True, "report_sent": True, "commentary_sent": False, "commentary": commentary, "commentary_error": r2.get("error", "unknown")})
+    return jsonify({"ok": True, "report_sent": True, "commentary_sent": True, "commentary": commentary})
 
 @app.route("/api/performance", methods=["POST"])
 def performance():
@@ -815,7 +846,7 @@ def performance():
 @app.route("/webhook", methods=["POST"])
 def webhook():
     """飞书事件订阅回调"""
-    data = request.json or {}
+    data = request.get_json(silent=True) or {}
     # challenge 验证
     if "challenge" in data:
         return jsonify({"challenge": data["challenge"]})
@@ -828,4 +859,4 @@ def webhook():
     return jsonify({"ok": True})
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5002, debug=True)
+    app.run(host="0.0.0.0", port=5002, debug=os.environ.get("FLASK_DEBUG") == "1")

@@ -155,6 +155,18 @@ AI 简评(LLM 生成 3-5 条财务点评)
 
 ## 📝 更新日志
 
+### 2026-07-11 (D4.1) — 代码审计修复
+- 🔒 `debug=True` 改为环境变量控制(`FLASK_DEBUG=1` 才开),关闭 Werkzeug 调试器 RCE 风险
+- 🔒 `MAX_CONTENT_LENGTH=16MB` 限制上传体积,防止内存耗尽
+- 🔒 前端所有 `innerHTML` 拼接的用户/LLM 内容加 `escapeHtml()` 转义,堵 XSS
+- 🔧 `cherry_client.py` 重写:HTTP 状态码检查 + 空 content 检查 + timeout 分类
+- 🔧 `chat_json` 支持 JSON 数组 `[...]` 提取(之前只支持对象 `{...}`)
+- 🔧 上传 LLM 失败的行跳过(不再写 `level1="?"` 污染管报),返回 failures 列表
+- 🔧 所有 SQLite 调用加 `try/finally`,防止连接泄漏
+- 🔧 AI 简评加进程级 LRU 缓存(`_COMMENTARY_CACHE`),同管报数据不重复调 LLM
+- 🔧 `report_feishu` 错误检查修正:用 `r1.get("ok")` 代替 `r1.get("code") != 0`
+- 🔧 `loadChats` 加 try/catch,修复未闭合括号 `(`
+
 ### 2026-07-10 (D4) — 管报 + AI 简评 + 飞书输出
 - ✅ 管报预览页面 `/report` — 科目汇总表 + 占比柱状图 + 总览卡片
 - ✅ AI 简评引擎 `/api/report/commentary` — LLM 基于管报数据生成 3-5 条财务点评
