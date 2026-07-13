@@ -7,7 +7,8 @@ import sqlite3
 import io
 from dotenv import load_dotenv
 from cherry_client import chat, chat_json, embed, test_connection
-from feishu_client import list_chats as feishu_list_chats, send_post as feishu_send_post
+from feishu_client import list_chats as feishu_list_chats, send_post as feishu_send_post, send_text as feishu_send_text
+from monitor import init_monitor
 
 load_dotenv()
 
@@ -20,6 +21,7 @@ CHERRYIN_BASE_URL = os.environ.get("CHERRYIN_BASE_URL", "https://express-ent-adm
 LLM_MODEL = os.environ.get("LLM_MODEL", "agent/deepseek-v4-pro")
 
 DB_PATH = os.path.join(os.path.dirname(__file__), "finance.db")
+ALERT_CHAT_ID = os.environ.get("FEISHU_ALERT_CHAT_ID", "oc_00d62cfc111423dab932a402a3965da4")  # 默认 wyl 测试群
 
 # === 数据库初始化 ===
 def init_db():
@@ -36,10 +38,38 @@ def init_db():
         reason TEXT,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )""")
+    # D5: 绩效规则表
+    c.execute("""CREATE TABLE IF NOT EXISTS performance_rules (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        department TEXT NOT NULL,
+        position TEXT NOT NULL,
+        coefficient REAL DEFAULT 1.0,
+        target_amount REAL DEFAULT 0,
+        bonus_base REAL DEFAULT 0,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )""")
+    # 插入默认规则(首次建表时)
+    c.execute("SELECT COUNT(*) FROM performance_rules")
+    if c.fetchone()[0] == 0:
+        default_rules = [
+            ("研发部", "工程师", 1.2, 500000, 8000),
+            ("研发部", "主管", 1.5, 800000, 15000),
+            ("销售部", "销售", 1.0, 300000, 6000),
+            ("销售部", "经理", 1.8, 1000000, 20000),
+            ("管理部", "行政", 0.8, 200000, 5000),
+            ("管理部", "总监", 2.0, 500000, 25000),
+            ("交付部", "交付工程师", 1.1, 400000, 7000),
+            ("交付部", "主管", 1.4, 700000, 12000),
+        ]
+        c.executemany("INSERT INTO performance_rules (department, position, coefficient, target_amount, bonus_base) VALUES (?, ?, ?, ?, ?)", default_rules)
     conn.commit()
     conn.close()
 
 init_db()
+
+# === 监控初始化 ===
+init_monitor(app, service_name="finance-agent", db_path=DB_PATH, llm_test_fn=test_connection,
+             alert_feishu_fn=feishu_send_post, alert_chat_id=ALERT_CHAT_ID)
 
 # === 口径规则 ===
 ACCOUNTING_RULES = """
@@ -156,6 +186,7 @@ td{padding:10px;border-bottom:1px solid #f0f0f5;font-size:14px}
         <a href="/">首页</a>
         <a href="/upload">上传</a>
         <a href="/report">管报</a>
+        <a href="/performance">绩效</a>
     </div>
 </div>
 <div class="container">
@@ -248,6 +279,163 @@ document.getElementById('send-feishu').addEventListener('click',async()=>{
     btn.disabled=false;btn.textContent='发送到飞书';
 });
 loadReport();loadCommentary();loadChats();
+</script>
+</body>
+</html>
+"""
+
+PERFORMANCE_HTML = """<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>绩效试算 · 财务 Agent</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Inter',system-ui,sans-serif;background:#f5f6fa;color:#333;line-height:1.6}
+.nav{background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);color:#fff;padding:16px 32px;display:flex;justify-content:space-between;align-items:center;box-shadow:0 2px 8px rgba(0,0,0,.1)}
+.nav h1{font-size:20px;font-weight:700}
+.nav a{color:#fff;text-decoration:none;margin-left:16px;font-size:14px;opacity:.85;transition:opacity .2s}
+.nav a:hover{opacity:1}
+.nav a.active{font-weight:600;opacity:1;border-bottom:2px solid #fff}
+.container{max-width:1000px;margin:0 auto;padding:24px 16px}
+.card{background:#fff;border-radius:12px;padding:24px;margin-bottom:16px;box-shadow:0 1px 3px rgba(0,0,0,.06)}
+.card h2{font-size:18px;font-weight:700;margin-bottom:16px;color:#1a1a2e}
+.stat-row{display:flex;gap:16px;flex-wrap:wrap}
+.stat-box{flex:1;min-width:140px;background:#f8f9ff;border-radius:8px;padding:16px;text-align:center}
+.stat-box .label{font-size:12px;color:#666;text-transform:uppercase;letter-spacing:.5px}
+.stat-box .value{font-size:24px;font-weight:700;margin-top:4px;color:#667eea}
+.stat-box .value.green{color:#2d8c2d}
+.stat-box .value.orange{color:#fa8c16}
+.filter-bar{display:flex;gap:12px;align-items:center;margin-bottom:16px;flex-wrap:wrap}
+.filter-bar select{padding:8px 12px;border:1px solid #ddd;border-radius:6px;font-size:14px;font-family:inherit}
+.btn{padding:8px 20px;border:none;border-radius:6px;font-size:14px;font-weight:500;cursor:pointer;font-family:inherit;transition:opacity .2s}
+.btn:hover{opacity:.85}
+.btn-primary{background:#667eea;color:#fff}
+.btn-feishu{background:#3370ff;color:#fff}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{text-align:left;padding:10px 12px;color:#666;font-weight:500;border-bottom:2px solid #eee;background:#fafafa}
+td{padding:10px 12px;border-bottom:1px solid #f0f0f0}
+tr:hover{background:#f8f9ff}
+.badge{display:inline-block;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600}
+.badge-green{background:#e6f7e6;color:#2d8c2d}
+.badge-orange{background:#fff7e6;color:#fa8c16}
+.badge-red{background:#fce8e8;color:#c92a2a}
+.loading{text-align:center;padding:40px;color:#888}
+.loading .spin{display:inline-block;width:32px;height:32px;border:3px solid #e8e8f0;border-top:3px solid #667eea;border-radius:50%;animation:spin 1s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.result-msg{margin-top:10px;padding:10px;border-radius:8px;font-size:13px;display:none}
+.result-msg.success{background:#e6f7e6;color:#2d8c2d;display:block}
+.result-msg.error{background:#fce8e8;color:#c92a2a;display:block}
+.feishu-section{margin-top:16px;padding-top:16px;border-top:1px solid #eee}
+.feishu-section select{padding:8px 12px;border:1px solid #ddd;border-radius:6px;font-size:14px;margin-right:8px;min-width:200px}
+</style>
+</head>
+<body>
+<div class="nav">
+    <h1>💰 财务 Agent</h1>
+    <div>
+        <a href="/">首页</a>
+        <a href="/upload">上传</a>
+        <a href="/report">管报</a>
+        <a href="/performance">绩效</a>
+        <a href="/performance" class="active">绩效</a>
+    </div>
+</div>
+<div class="container">
+    <div class="card">
+        <h2>🎯 绩效试算</h2>
+        <p style="color:#666;font-size:13px;margin-bottom:16px">基于管报流水和绩效规则表,自动计算各部门/岗位的达成率与绩效奖金</p>
+        <div class="filter-bar">
+            <label>部门筛选:</label>
+            <select id="dept-filter" onchange="loadPerformance()">
+                <option value="">全部部门</option>
+            </select>
+            <button class="btn btn-primary" onclick="loadPerformance()">🔄 刷新</button>
+        </div>
+        <div class="stat-row">
+            <div class="stat-box"><div class="label">总流水</div><div class="value" id="total-amount">-</div></div>
+            <div class="stat-box"><div class="label">绩效奖金合计</div><div class="value green" id="total-bonus">-</div></div>
+            <div class="stat-box"><div class="label">规则数</div><div class="value orange" id="rules-count">-</div></div>
+        </div>
+    </div>
+    <div class="card">
+        <h2>📋 绩效明细</h2>
+        <div id="perf-area"><div class="loading"><div class="spin"></div><p style="margin-top:10px">计算中...</p></div></div>
+    </div>
+    <div class="card">
+        <h2>📤 发送到飞书</h2>
+        <p style="color:#666;font-size:13px;margin-bottom:12px">把绩效报告推送到飞书群</p>
+        <select id="chat-select" style="padding:8px 12px;border:1px solid #ddd;border-radius:6px;font-size:14px;margin-right:8px;min-width:200px"><option value="">加载群聊中...</option></select>
+        <button class="btn btn-feishu" id="send-feishu" disabled>发送绩效报告</button>
+        <div class="result-msg" id="feishu-result"></div>
+    </div>
+</div>
+<script>
+function escapeHtml(s){if(s==null)return '';return String(s).replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]))}
+async function loadPerformance(){
+    const dept=document.getElementById('dept-filter').value;
+    const url='/api/performance/calculate'+(dept?('?department='+encodeURIComponent(dept)):'');
+    const r=await fetch(url);
+    const d=await r.json();
+    if(!d.ok){document.getElementById('perf-area').innerHTML='<p style="color:#c92a2a">'+escapeHtml(d.error||'计算失败')+'</p>';return;}
+    document.getElementById('total-amount').textContent='¥'+(d.total_amount||0).toLocaleString();
+    document.getElementById('total-bonus').textContent='¥'+(d.total_bonus||0).toLocaleString();
+    document.getElementById('rules-count').textContent=(d.rules_count||0)+' 条';
+    const tbody=document.getElementById('perf-area');
+    if(!d.departments||d.departments.length===0){tbody.innerHTML='<p style="color:#888;text-align:center;padding:20px">暂无数据</p>';return;}
+    let html='<table><thead><tr><th>部门</th><th>岗位</th><th>目标</th><th>实际</th><th>达成率</th><th>系数</th><th>奖金基数</th><th>应发奖金</th><th>状态</th></tr></thead><tbody>';
+    for(const item of d.departments){
+        const badgeClass=item.status==='超额'?'badge-green':(item.status==='未达标'?'badge-red':'badge-green');
+        html+='<tr><td>'+escapeHtml(item.department)+'</td><td>'+escapeHtml(item.position)+'</td><td>¥'+item.target_amount.toLocaleString()+'</td><td>¥'+item.actual_amount.toLocaleString()+'</td><td>'+item.achievement_rate+'%</td><td>'+item.coefficient+'</td><td>¥'+item.bonus_base.toLocaleString()+'</td><td><strong>¥'+item.bonus.toLocaleString()+'</strong></td><td><span class="badge '+badgeClass+'">'+escapeHtml(item.status)+'</span></td></tr>';
+    }
+    html+='</tbody></table>';
+    tbody.innerHTML=html;
+}
+async function loadChats(){
+    try{
+        const r=await fetch('/api/feishu/chats');
+        const d=await r.json();
+        const sel=document.getElementById('chat-select');
+        if(d.ok&&d.chats&&d.chats.length>0){
+            sel.innerHTML=d.chats.map(c=>'<option value="'+escapeHtml(c.chat_id)+'">'+escapeHtml(c.name)+'</option>').join('');
+            document.getElementById('send-feishu').disabled=false;
+        }else{
+            sel.innerHTML='<option value="">无可用群聊</option>';
+        }
+    }catch(e){document.getElementById('chat-select').innerHTML='<option value="">加载失败</option>';}
+}
+async function loadDepts(){
+    try{
+        const r=await fetch('/api/performance/calculate');
+        const d=await r.json();
+        if(d.ok&&d.departments){
+            const depts=[...new Set(d.departments.map(x=>x.department))];
+            const sel=document.getElementById('dept-filter');
+            const cur=sel.value;
+            sel.innerHTML='<option value="">全部部门</option>'+depts.map(x=>'<option value="'+escapeHtml(x)+'">'+escapeHtml(x)+'</option>').join('');
+            sel.value=cur;
+        }
+    }catch(e){}
+}
+document.getElementById('send-feishu').addEventListener('click',async()=>{
+    const chatId=document.getElementById('chat-select').value;
+    if(!chatId)return;
+    const btn=document.getElementById('send-feishu');
+    const result=document.getElementById('feishu-result');
+    btn.disabled=true;btn.textContent='发送中...';
+    result.className='result-msg';result.style.display='none';
+    try{
+        const r=await fetch('/api/performance/feishu',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({chat_id:chatId,department:document.getElementById('dept-filter').value})});
+        const d=await r.json();
+        if(d.ok){result.className='result-msg success';result.textContent='✅ 发送成功!奖金合计 ¥'+(d.total_bonus||0).toLocaleString();}
+        else{result.className='result-msg error';result.textContent='❌ '+escapeHtml(d.error||'发送失败');}
+    }catch(e){result.className='result-msg error';result.textContent='❌ 网络错误';}
+    btn.disabled=false;btn.textContent='发送绩效报告';
+});
+loadPerformance().then(loadDepts);loadChats();
 </script>
 </body>
 </html>
@@ -551,6 +739,10 @@ def normalize():
     """字段归一化: 输入流水,输出归一化科目"""
     data = request.get_json(silent=True) or {}
     amount = data.get("amount", 0)
+    try:
+        amount = float(amount)
+    except (ValueError, TypeError):
+        amount = 0
     summary = data.get("summary", "")
     source = data.get("source", "未知")
 
@@ -569,6 +761,10 @@ def normalize():
         {"role": "user", "content": prompt},
     ], temperature=0.1)
 
+    if isinstance(result, dict) and result.get("_error"):
+        return jsonify({"ok": False, "error": result["_error"], "stage": "normalize"})
+    if not isinstance(result, dict) or "level1" not in result:
+        return jsonify({"ok": False, "error": "LLM 返回格式异常", "stage": "normalize", "raw": str(result)[:200]})
     return jsonify({"ok": True, "result": result, "input": {"amount": amount, "summary": summary, "source": source}})
 
 @app.route("/api/normalize/batch", methods=["POST"])
@@ -576,9 +772,18 @@ def normalize_batch():
     """批量归一化"""
     data = request.get_json(silent=True) or {}
     transactions = data.get("transactions", [])
+    if not isinstance(transactions, list):
+        return jsonify({"ok": False, "error": "transactions must be a list"})
     results = []
     for tx in transactions:
+        if not isinstance(tx, dict):
+            results.append({"input": tx, "ok": False, "error": "invalid transaction"})
+            continue
         amount = tx.get("amount", 0)
+        try:
+            amount = float(amount)
+        except (ValueError, TypeError):
+            amount = 0
         summary = tx.get("summary", "")
         source = tx.get("source", "未知")
         if not summary:
@@ -591,12 +796,17 @@ def normalize_batch():
             {"role": "system", "content": "你是财务归类助手。只返回 JSON。"},
             {"role": "user", "content": prompt},
         ], temperature=0.1)
-        results.append({"input": tx, "result": r})
-    return jsonify({"ok": True, "count": len(results), "results": results})
+        if isinstance(r, dict) and r.get("_error"):
+            results.append({"input": tx, "ok": False, "error": r["_error"]})
+        elif not isinstance(r, dict) or "level1" not in r:
+            results.append({"input": tx, "ok": False, "error": "LLM 返回格式异常"})
+        else:
+            results.append({"input": tx, "ok": True, "result": r})
+    return jsonify({"ok": True, "count": len(results), "success_count": len([r for r in results if r.get("ok")]), "results": results})
 
 # === 数据上传 ===
 def parse_excel(file_storage):
-    """解析 Excel/CSV,返回 [{summary, amount, source}, ...]"""
+    """解析 Excel/CSV,返回 (rows, error) 元组。成功时 error=None,失败时 rows=None"""
     filename = file_storage.filename
     if filename.endswith(".csv"):
         import csv
@@ -619,10 +829,13 @@ def parse_excel(file_storage):
                         summary = str(v).strip()
             if summary or amount:
                 rows.append({"summary": summary, "amount": amount, "source": "上传"})
-        return rows
+        return rows, None
     else:
         try:
             import openpyxl
+        except ImportError:
+            return None, "openpyxl not installed"
+        try:
             wb = openpyxl.load_workbook(file_storage.stream, data_only=True)
             ws = wb.active
             headers = [str(cell.value or "").strip() for cell in ws[1]]
@@ -643,9 +856,9 @@ def parse_excel(file_storage):
                             summary = str(v).strip()
                 if summary or amount:
                     rows.append({"summary": summary, "amount": amount, "source": "上传"})
-            return rows
-        except ImportError:
-            return None
+            return rows, None
+        except Exception as e:
+            return None, f"Excel 解析失败: {e}"
 
 @app.route("/api/upload", methods=["POST"])
 def upload():
@@ -653,12 +866,17 @@ def upload():
     f = request.files.get("file")
     if not f:
         return jsonify({"ok": False, "error": "file is required"})
-    source_type = request.form.get("source_type", "上传")
-    rows = parse_excel(f)
+    source_type = request.form.get("source_type", "上传").strip()
+    valid_sources = {"报销", "对公支付", "工资", "上传"}
+    if source_type not in valid_sources:
+        return jsonify({"ok": False, "error": f"source_type 必须是: {sorted(valid_sources)}"})
+    rows, parse_err = parse_excel(f)
     if rows is None:
-        return jsonify({"ok": False, "error": "openpyxl not installed"})
+        return jsonify({"ok": False, "error": parse_err or "解析失败"})
     if not rows:
         return jsonify({"ok": False, "error": "未解析到数据(请检查表头是否含'金额'和'摘要')"})
+    if len(rows) > 200:
+        return jsonify({"ok": False, "error": f"单次最多 200 行,当前 {len(rows)} 行(请分批上传)"})
     # 归一化 + 入库
     results = []
     failures = []
@@ -677,10 +895,10 @@ def upload():
                 {"role": "system", "content": "你是财务归类助手。只返回 JSON。"},
                 {"role": "user", "content": prompt},
             ], temperature=0.1)
-            if not isinstance(r, dict) or r.get("error") or "level1" not in r:
-                failures.append({"row": i + 1, "summary": row["summary"], "error": r.get("error", "missing level1") if isinstance(r, dict) else "invalid response"})
+            if not isinstance(r, dict) or r.get("_error") or "level1" not in r:
+                failures.append({"row": i + 1, "summary": row["summary"], "error": r.get("_error", "missing level1") if isinstance(r, dict) else "invalid response"})
                 # 失败行不入库,跳过
-                results.append({**row, "level1": "未归类", "level2": "未归类", "confidence": 0, "reason": r.get("error", "LLM 返回异常") if isinstance(r, dict) else "LLM 返回非 dict", "failed": True})
+                results.append({**row, "level1": "未归类", "level2": "未归类", "confidence": 0, "reason": r.get("_error", "LLM 返回异常") if isinstance(r, dict) else "LLM 返回非 dict", "failed": True})
                 continue
             level1 = r.get("level1", "?")
             level2 = r.get("level2", "?")
@@ -837,26 +1055,278 @@ def report_feishu():
         return jsonify({"ok": True, "report_sent": True, "commentary_sent": False, "commentary": commentary, "commentary_error": r2.get("error", "unknown")})
     return jsonify({"ok": True, "report_sent": True, "commentary_sent": True, "commentary": commentary})
 
-@app.route("/api/performance", methods=["POST"])
-def performance():
-    """绩效试算 (D5 实现)"""
-    return jsonify({"ok": True, "message": "D5 实现"})
+# === D5: 绩效试算 ===
+PERFORMANCE_PROMPT = """你是绩效管理专家。根据以下数据给出绩效简评(2-3 条):
+
+{data}
+
+要求:
+1. 每条一行,直接给结论
+2. 关注达成率、超额/未达标、系数合理性
+3. 不要客套话
+"""
+
+def _get_performance_rules():
+    """取所有绩效规则,返回 list of dict"""
+    conn = sqlite3.connect(DB_PATH)
+    try:
+        c = conn.cursor()
+        c.execute("SELECT department, position, coefficient, target_amount, bonus_base FROM performance_rules ORDER BY department, position")
+        rows = c.fetchall()
+    finally:
+        conn.close()
+    return [{"department": r[0], "position": r[1], "coefficient": r[2],
+             "target_amount": r[3], "bonus_base": r[4]} for r in rows]
+
+
+def _calculate_performance(department=None):
+    """计算绩效。返回 dict: {departments: [...], summary: {...}}
+
+    逻辑:
+      - 每个部门的流水 = transactions 表里 source 匹配部门名的金额合计
+        (source 字段目前是"报销/对公支付/工资",不直接区分部门,
+         所以用 LLM 归一化后的 level2 项关联部门关键词)
+      - 达成率 = 部门实际流水 / target_amount
+      - 绩效奖金 = bonus_base × coefficient × (达成率 clamp 到 [0, 1.5])
+    """
+    rules = _get_performance_rules()
+    if not rules:
+        return None
+
+    conn = sqlite3.connect(DB_PATH)
+    try:
+        c = conn.cursor()
+        # 按一级科目汇总,用于关联部门
+        c.execute("SELECT level1, SUM(amount) FROM transactions GROUP BY level1")
+        l1_totals = {r[0]: r[1] or 0 for r in c.fetchall()}
+        c.execute("SELECT COUNT(*) as cnt, SUM(amount) as total FROM transactions")
+        overall = c.fetchone()
+    finally:
+        conn.close()
+
+    total_amount = overall[1] or 0
+    total_count = overall[0] or 0
+
+    # 部门 → 科目映射(简化模型:哪类费用占比高就归哪个部门)
+    DEPT_SUBJECT_MAP = {
+        "研发部": ["研发费"],
+        "销售部": ["销售费"],
+        "管理部": ["管理费"],
+        "交付部": ["营业成本"],
+    }
+
+    results = []
+    for rule in rules:
+        dept = rule["department"]
+        # 部门实际流水 = 映射科目金额合计(简化模型)
+        subjects = DEPT_SUBJECT_MAP.get(dept, [])
+        actual = sum(l1_totals.get(s, 0) for s in subjects)
+
+        target = rule["target_amount"]
+        achievement_rate = (actual / target) if target > 0 else 0
+        # 达成率 clamp [0, 1.5]
+        clamped_rate = max(0, min(1.5, achievement_rate))
+        bonus = rule["bonus_base"] * rule["coefficient"] * clamped_rate
+
+        status = "达标"
+        if achievement_rate < 0.6:
+            status = "未达标"
+        elif achievement_rate >= 1.0:
+            status = "超额"
+
+        results.append({
+            "department": dept,
+            "position": rule["position"],
+            "coefficient": rule["coefficient"],
+            "target_amount": target,
+            "actual_amount": actual,
+            "achievement_rate": round(achievement_rate * 100, 1),
+            "bonus_base": rule["bonus_base"],
+            "bonus": round(bonus, 2),
+            "status": status,
+        })
+
+    if department:
+        results = [r for r in results if r["department"] == department]
+
+    total_bonus = sum(r["bonus"] for r in results)
+
+    return {
+        "rules_count": len(rules),
+        "total_count": total_count,
+        "total_amount": total_amount,
+        "total_bonus": round(total_bonus, 2),
+        "departments": results,
+        "level1_totals": l1_totals,
+    }
+
+
+@app.route("/performance")
+def performance_page():
+    """绩效试算页面"""
+    return PERFORMANCE_HTML
+
+
+@app.route("/api/performance/calculate", methods=["GET"])
+def performance_calculate():
+    """计算绩效试算结果"""
+    department = request.args.get("department", "").strip()
+    data = _calculate_performance(department or None)
+    if data is None:
+        return jsonify({"ok": False, "error": "未配置绩效规则"})
+    return jsonify({"ok": True, **data})
+
+
+@app.route("/api/performance/feishu", methods=["POST"])
+def performance_send_feishu():
+    """把绩效报告推送到飞书群"""
+    data = request.get_json(silent=True) or {}
+    chat_id = data.get("chat_id", "").strip()
+    if not chat_id:
+        return jsonify({"ok": False, "error": "缺少 chat_id"})
+
+    dept = data.get("department", "").strip() or None
+    result = _calculate_performance(dept)
+    if result is None:
+        return jsonify({"ok": False, "error": "未配置绩效规则"})
+
+    # 构建飞书富文本
+    title = "📊 绩效试算报告"
+    paragraphs = [
+        [{"tag": "text", "text": f"总流水: ¥{result['total_amount']:,.2f} ({result['total_count']} 笔)\n绩效奖金合计: ¥{result['total_bonus']:,.2f}\n"}],
+    ]
+
+    # 按部门分组
+    for item in result["departments"]:
+        status_emoji = {"达标": "✅", "超额": "🚀", "未达标": "⚠️"}.get(item["status"], "")
+        line = f"{status_emoji} {item['department']} · {item['position']}\n  目标: ¥{item['target_amount']:,.0f} | 实际: ¥{item['actual_amount']:,.0f} | 达成率: {item['achievement_rate']}%\n  系数: {item['coefficient']} | 奖金基数: ¥{item['bonus_base']:,.0f} → 应发: ¥{item['bonus']:,.2f}"
+        paragraphs.append([{"tag": "text", "text": line}])
+
+    r = feishu_send_post(chat_id, title, paragraphs)
+    if not r.get("ok"):
+        return jsonify({"ok": False, "error": r.get("error", "发送失败")})
+    return jsonify({"ok": True, "sent": True, "total_bonus": result["total_bonus"]})
+
+
+@app.route("/api/performance/rules", methods=["GET"])
+def performance_rules_api():
+    """列出绩效规则"""
+    return jsonify({"ok": True, "rules": _get_performance_rules()})
+
 
 # === 飞书 webhook ===
+# 已处理消息 ID 去重(飞书会重试)
+_PROCESSED_MSG_IDS = set()
+_MAX_MSG_CACHE = 200
+
+
+def _handle_feishu_message(text, chat_id):
+    """处理飞书消息指令,异步调用(不阻塞 webhook 响应)"""
+    text = (text or "").strip()
+    try:
+        if "帮助" in text or text.lower() in ("help", "?", "？"):
+            feishu_send_text(chat_id,
+                "🤖 财务试算助手 · 指令列表\n"
+                "──────────────\n"
+                "管报  — 查看最新管报汇总\n"
+                "绩效  — 查看绩效试算结果\n"
+                "简评  — AI 生成财务简评\n"
+                "帮助  — 显示本指令列表\n"
+                "──────────────\n"
+                "直接发送关键词即可,无需@")
+
+        elif "管报" in text:
+            rows, overall = _get_report_data()
+            if rows is None:
+                feishu_send_text(chat_id, "📊 暂无流水数据,请先上传 Excel/CSV。")
+                return
+            report = _build_report_text(rows, overall)
+            feishu_send_text(chat_id, "📊 最新管报汇总\n" + report)
+
+        elif "绩效" in text:
+            data = _calculate_performance()
+            if data is None:
+                feishu_send_text(chat_id, "🎯 暂无绩效规则配置。")
+                return
+            lines = [
+                f"🎯 绩效试算结果",
+                f"总流水: ¥{data['total_amount']:,.2f} ({data['total_count']} 笔)",
+                f"绩效奖金合计: ¥{data['total_bonus']:,.2f}",
+                "",
+            ]
+            for item in data["departments"]:
+                emoji = {"达标": "✅", "超额": "🚀", "未达标": "⚠️"}.get(item["status"], "")
+                lines.append(f"{emoji} {item['department']}·{item['position']}: 达成率 {item['achievement_rate']}% → ¥{item['bonus']:,.0f}")
+            feishu_send_text(chat_id, "\n".join(lines))
+
+        elif "简评" in text:
+            rows, overall = _get_report_data()
+            if rows is None:
+                feishu_send_text(chat_id, "🤖 暂无流水数据,无法生成简评。")
+                return
+            feishu_send_text(chat_id, "🤖 AI 正在分析管报,请稍候...")
+            commentary, err = _generate_commentary(rows, overall)
+            if err:
+                feishu_send_text(chat_id, f"❌ 简评生成失败: {err}")
+            else:
+                feishu_send_text(chat_id, "🤖 AI 简评\n" + commentary)
+
+        else:
+            feishu_send_text(chat_id,
+                f"收到: {text[:50]}\n发送\"帮助\"查看可用指令。")
+    except Exception as e:
+        try:
+            feishu_send_text(chat_id, f"❌ 处理消息时出错: {e}")
+        except Exception:
+            pass
+
+
 @app.route("/webhook", methods=["POST"])
 def webhook():
-    """飞书事件订阅回调"""
+    """飞书事件订阅回调
+
+    支持飞书 v2 事件格式(header.event_type)和 v1 格式(event.type)。
+    收到消息后立即返回 200,异步处理指令(避免飞书 3 秒超时)。
+    """
     data = request.get_json(silent=True) or {}
     # challenge 验证
     if "challenge" in data:
         return jsonify({"challenge": data["challenge"]})
-    # 事件处理(后续实现)
+
+    # 解析消息(v2 和 v1 兼容)
+    header = data.get("header", {})
+    event_type = header.get("event_type") or data.get("type", "")
     event = data.get("event", {})
     msg = event.get("message", {})
-    if msg:
-        # 收到消息,后续实现 Bot 回复逻辑
-        pass
+
+    if not msg:
+        return jsonify({"ok": True})
+
+    # 消息去重(飞书会重试)
+    msg_id = msg.get("message_id", "")
+    if msg_id and msg_id in _PROCESSED_MSG_IDS:
+        return jsonify({"ok": True, "dedup": True})
+    if msg_id:
+        _PROCESSED_MSG_IDS.add(msg_id)
+        if len(_PROCESSED_MSG_IDS) > _MAX_MSG_CACHE:
+            _PROCESSED_MSG_IDS.pop()
+
+    chat_id = msg.get("chat_id", "")
+    content_str = msg.get("content", "{}")
+    try:
+        content = json.loads(content_str) if isinstance(content_str, str) else content_str
+    except (json.JSONDecodeError, TypeError):
+        content = {}
+    text = content.get("text", "")
+
+    # 异步处理(不阻塞 webhook 响应)
+    if chat_id and text:
+        import threading
+        t = threading.Thread(target=_handle_feishu_message, args=(text, chat_id), daemon=True)
+        t.start()
+
     return jsonify({"ok": True})
+
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5002, debug=os.environ.get("FLASK_DEBUG") == "1")

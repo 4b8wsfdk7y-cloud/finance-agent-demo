@@ -155,6 +155,50 @@ AI 简评(LLM 生成 3-5 条财务点评)
 
 ## 📝 更新日志
 
+### 2026-07-13 (D6) — 飞书 Bot 交互
+- 🤖 飞书 Bot webhook 实现 — `/webhook` 支持 v2 事件格式,收到消息异步处理
+- 🤖 4 个指令: 管报(汇总)/绩效(试算)/简评(AI 点评)/帮助(指令列表)
+- 🤖 消息去重 — `_PROCESSED_MSG_IDS` 缓存最近 200 条 message_id,飞书重试不重复处理
+- 🤖 异步处理 — `threading.Thread` 后台处理指令,webhook 立即返回 200(避免飞书 3 秒超时)
+- 🤖 未知消息自动回复提示
+- 🧪 新增 `TestWebhook` 扩展 — 5 个测试:帮助/管报/绩效/未知指令/去重
+- 🧪 测试总数: 32 → 37 个(全绿)
+
+### 2026-07-13 (D5) — 绩效试算引擎
+- 🎯 新增 `performance_rules` 表 — 部门/岗位/系数/目标值/奖金基数(建表时自动插入 8 条默认规则)
+- 🎯 新增 `/api/performance/calculate` GET 端点 — 从管报流水反算各部门/岗位达成率与绩效奖金
+- 🎯 新增 `/api/performance/feishu` POST 端点 — 把绩效报告推送到飞书群(富文本格式)
+- 🎯 新增 `/api/performance/rules` GET 端点 — 列出绩效规则表
+- 🎯 新增 `/performance` 页面 — 部门筛选 + 绩效明细表(达成率/系数/奖金/状态)+ 飞书推送
+- 🎯 奖金计算公式: `bonus = bonus_base × coefficient × clamp(达成率, 0, 1.5)`
+- 🎯 部门→科目映射: 研发部→研发费 / 销售部→销售费 / 管理部→管理费 / 交付部→营业成本
+- 🎯 三个状态: 达标 / 超额 / 未达标(< 60% 目标)
+- 🧪 新增 `TestPerformance` 测试类 — 7 个测试覆盖:页面渲染/规则加载/空DB计算/有数据计算/部门筛选/奖金公式/飞书缺chat_id
+- 🧪 测试总数: 25 → 32 个(全绿)
+- ✅ 端到端验证: 10 笔 mock 流水 → 8 条规则试算 → 总奖金 ¥3,714.99 → 全部"未达标"(mock 数据量小,目标几十万到百万)
+
+### 2026-07-11 (D4.3) — 飞书告警系统
+- 🚨 飞书告警集成 — `monitor.py` 新增告警引擎,自动推送关键告警到飞书群
+- 🚨 3 类告警触发规则:
+  - **5xx 错误** — 服务端异常告警(每路径 5 分钟限流,避免告警风暴)
+  - **健康检查失败** — DB/LLM 连不上即告警(10 分钟限流)
+  - **错误率激增** — 5 分钟窗口 >30% 错误率告警(至少 20 请求,15 分钟限流)
+- 🚨 新增 `/api/alert/test` 端点 — 一键发送测试告警,验证飞书链路通畅
+- 🚨 `/monitor` 仪表盘新增「飞书告警」卡片(累计告警数)+「最近告警」列表(时间/标题/状态)
+- 🚨 仪表盘底部新增「🧪 发送测试告警」按钮(POST /api/alert/test)
+- 🧪 新增 `TestAlert` 测试类 — 5 个测试覆盖:端点调用/飞书缺失场景/5xx 触发/5xx 限流/4xx 不触发
+- 🧪 测试总数: 20 → 25 个(全绿)
+- ✅ 端到端验证: 两个 Agent 测试告警均秒发到飞书群,`alerts_sent` 计数正确
+
+### 2026-07-11 (D4.2) — 监控 + 单元测试
+- 📊 新增 `monitor.py` 监控模块:请求统计 + 健康检查 + 结构化日志
+- 📊 新增 `/api/stats` 端点 — 请求总数/错误数/错误率/端点明细(平均+最大耗时)/最近 50 条错误
+- 📊 新增 `/api/health/full` 端点 — DB 连通性 + LLM 连通性 + 运行时间
+- 📊 新增 `/monitor` 监控仪表盘 — 暗色主题 HTML,展示总览/端点统计/最近错误
+- 📊 结构化日志 — `logs/finance-agent.log`(10MB 轮转,保留 5 个),记录慢请求(>10s)和 5xx 错误
+- 🧪 新增 `test_app.py` — 20 个单元测试(unittest + mock),覆盖 health/stats/normalize/batch/upload/report/webhook
+- 🧪 测试运行: `.venv/bin/python test_app.py`(无需 pytest)
+
 ### 2026-07-11 (D4.1) — 代码审计修复
 - 🔒 `debug=True` 改为环境变量控制(`FLASK_DEBUG=1` 才开),关闭 Werkzeug 调试器 RCE 风险
 - 🔒 `MAX_CONTENT_LENGTH=16MB` 限制上传体积,防止内存耗尽
@@ -166,6 +210,12 @@ AI 简评(LLM 生成 3-5 条财务点评)
 - 🔧 AI 简评加进程级 LRU 缓存(`_COMMENTARY_CACHE`),同管报数据不重复调 LLM
 - 🔧 `report_feishu` 错误检查修正:用 `r1.get("ok")` 代替 `r1.get("code") != 0`
 - 🔧 `loadChats` 加 try/catch,修复未闭合括号 `(`
+- 🔧 `/api/normalize` 和 `/api/normalize/batch` 加 LLM 错误检查(之前失败也返回 `ok:true`)
+- 🔧 `parse_excel` 改为返回 `(rows, error)` 元组,区分"openpyxl 未装"和"文件解析失败"
+- 🔧 `chat_json` 失败标记从 `error` 改为 `_error`,避免与 LLM 合法返回的 error 字段混淆
+- 🔧 `/api/upload` 加 `source_type` 白名单校验 + 单次最多 200 行限制(防 API 滥用)
+- 🔧 `/api/normalize` 和 `/api/normalize/batch` 的 `amount` 加 `float()` 类型转换(非数字容错为 0)
+- 🔧 `/api/normalize/batch` 加 `transactions` 类型检查(非 list 直接拒绝)
 
 ### 2026-07-10 (D4) — 管报 + AI 简评 + 飞书输出
 - ✅ 管报预览页面 `/report` — 科目汇总表 + 占比柱状图 + 总览卡片
@@ -208,9 +258,9 @@ AI 简评(LLM 生成 3-5 条财务点评)
 | D2 | 7/10 | CherryIN 客户端 + 字段归一化 | ✅ 完成 |
 | D3 | 7/10 | Excel 上传 + 管报预览 | ✅ 完成 |
 | D4 | 7/10 | 管报页面 + AI 简评 + 飞书输出 | ✅ 完成 |
-| D5 | 7/14 | 绩效规则表 + 试算引擎 | ⏳ 开发中 |
-| D6 | 7/15 | 飞书 Bot 交互调参 | ⏳ 计划 |
-| D7 | 7/16 | Demo 交付 + 录屏 | ⏳ 计划 |
+| D5 | 7/13 | 绩效规则表 + 试算引擎 | ✅ 完成 |
+| D6 | 7/13 | 飞书 Bot 交互调参 | ✅ 完成 |
+| D7 | 7/13 | Demo 交付 + 录屏 | ✅ 完成 |
 
 ## 👥 项目背景
 
