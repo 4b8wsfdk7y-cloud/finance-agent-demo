@@ -720,7 +720,7 @@ body::after{content:'';position:fixed;inset:0;z-index:-1;opacity:.4;
     <p>上传你的第一份财务数据,体验 AI 归一化与管报生成全流程</p>
     <div class="hero-cta">
       <a class="btn btn-primary" href="/upload">📤 立即上传</a>
-      <a class="btn btn-ghost" href="/api/report/preview" target="_blank">📈 管报预览 API</a>
+      <a class="btn btn-ghost" href="/report">📈 管报预览 API</a>
     </div>
   </div>
 
@@ -839,7 +839,7 @@ h1{font-family:-apple-system,BlinkMacSystemFont,"Helvetica Neue","Songti SC","ST
     </div>
     <div class="result" id="result"></div>
     <a href="/" class="back">← 返回首页</a>
-    <a href="/api/report/preview" target="_blank" class="back" style="margin-left:16px;color:#a78bfa">📈 查看管报 →</a>
+    <a href="/report" class="back" style="margin-left:16px;color:#a78bfa">📈 查看管报 →</a>
   </div>
 </div>
 
@@ -877,7 +877,7 @@ btn.addEventListener('click',async()=>{
       html+='<span style="font-size:11px;color:var(--c-text-muted)">置信度 '+(d.confidence*100).toFixed(0)+'%</span></div>';
       if(j.ocr_text_preview){html+='<details style="margin-top:12px"><summary style="cursor:pointer;font-size:12px;color:var(--c-text-muted)">查看 OCR 原文</summary><div class="ocr-preview">'+escapeHtml(j.ocr_text_preview)+'</div></details>'}
       html+='</div>';
-      html+='<div style="text-align:center;margin-top:12px"><a href="/api/report/preview" target="_blank" style="color:#a78bfa;font-weight:600;text-decoration:none">📈 查看管报预览 →</a></div>';
+      html+='<div style="text-align:center;margin-top:12px"><a href="/report" style="color:#a78bfa;font-weight:600;text-decoration:none">📈 查看管报预览 →</a></div>';
       result.innerHTML=html;
     }else{
       result.innerHTML='<div class="error">❌ '+escapeHtml(j.error||JSON.stringify(j))+'</div>';
