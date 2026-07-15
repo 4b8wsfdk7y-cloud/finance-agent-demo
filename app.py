@@ -7,7 +7,7 @@ import sqlite3
 import io
 from dotenv import load_dotenv
 from cherry_client import chat, chat_json, embed, test_connection
-from feishu_client import list_chats as feishu_list_chats, send_post as feishu_send_post, send_text as feishu_send_text
+from feishu_client import list_chats as feishu_list_chats, send_post as feishu_send_post, send_text as feishu_send_text, download_message_file as feishu_download_file
 from monitor import init_monitor
 
 load_dotenv()
@@ -129,6 +129,27 @@ def _require_user():
     if not u:
         return None, jsonify({"ok": False, "error": "未登录"}), 401
     return u, None
+
+
+def _get_or_create_user_by_open_id(open_id, name=None):
+    """通过飞书 open_id 查或建用户。返回 user dict 或 None。"""
+    if not open_id:
+        return None
+    conn = sqlite3.connect(DB_PATH)
+    try:
+        c = conn.cursor()
+        c.execute("SELECT id, name, role FROM users WHERE feishu_open_id=?", (open_id,))
+        row = c.fetchone()
+        if row:
+            return {"id": row[0], "name": row[1], "role": row[2]}
+        # 自动建档为 employee
+        c.execute("INSERT INTO users (name, role, feishu_open_id) VALUES (?, ?, ?)",
+                  (name or f"飞书用户_{open_id[-6:]}", "employee", open_id))
+        conn.commit()
+        uid = c.lastrowid
+        return {"id": uid, "name": name or f"飞书用户_{open_id[-6:]}", "role": "employee"}
+    finally:
+        conn.close()
 
 
 # === 口径规则 ===
@@ -1644,6 +1665,114 @@ _PROCESSED_MSG_IDS = set()
 _MAX_MSG_CACHE = 200
 
 
+def _handle_feishu_file_message(msg_id, msg_type, content, chat_id, sender_open_id):
+    """处理飞书图片/文件消息:下载 → OCR → AI 解析 → 入库 → 回复"""
+    try:
+        # 提取 file_key / image_key
+        if msg_type == "image":
+            file_key = content.get("image_key", "")
+            file_type = "image"
+            filename = f"feishu_image_{file_key[:16]}.png"
+        elif msg_type == "file":
+            file_key = content.get("file_key", "")
+            file_type = "file"
+            filename = content.get("file_name", f"feishu_file_{file_key[:16]}")
+        else:
+            return
+
+        if not file_key:
+            feishu_send_text(chat_id, "❌ 无法获取文件 key")
+            return
+
+        feishu_send_text(chat_id, "📥 正在下载文件...")
+
+        # 1. 下载文件
+        dl = feishu_download_file(msg_id, file_key, file_type=file_type)
+        if not dl.get("ok"):
+            feishu_send_text(chat_id, f"❌ 文件下载失败: {dl.get('error', '未知错误')}")
+            return
+
+        file_bytes = dl["data"]
+        feishu_send_text(chat_id, f"📄 文件已下载({len(file_bytes)} 字节),OCR 提取中...")
+
+        # 2. 提取文本(复用 extract_text_from_upload)
+        import io as _io
+        extracted = extract_text_from_upload(_io.BytesIO(file_bytes), filename)
+        if isinstance(extracted, dict) and not extracted.get("ok", True):
+            feishu_send_text(chat_id, f"❌ 文本提取失败: {extracted.get('error', '未知')}")
+            return
+        invoice_text = extracted
+        if len(invoice_text.strip()) < 5:
+            feishu_send_text(chat_id, "❌ 提取到的文本过短,无法解析(图片可能模糊或无文字)")
+            return
+
+        # 3. AI 解析 + 归一化
+        feishu_send_text(chat_id, "🤖 AI 解析中(约 10-30 秒)...")
+        prompt = INVOICE_PARSE_PROMPT.format(rules=ACCOUNTING_RULES, invoice_text=invoice_text[:6000])
+        r = chat_json([
+            {"role": "system", "content": "你是财务发票解析助手。从 OCR 文本提取字段并归一化科目。只返回 JSON。"},
+            {"role": "user", "content": prompt},
+        ], temperature=0.1)
+
+        if not isinstance(r, dict) or r.get("_error") or "level1" not in r:
+            feishu_send_text(chat_id, f"❌ AI 解析失败: {r.get('_error', '返回异常') if isinstance(r, dict) else '非 dict'}")
+            return
+
+        # 4. 解析金额
+        try:
+            amount = float(str(r.get("amount", 0)).replace(",", "").replace("¥", "").replace("元", "").strip() or 0)
+        except (ValueError, TypeError):
+            amount = 0
+
+        level1 = r.get("level1", "未归类")
+        level2 = r.get("level2", "未归类")
+        confidence = max(0, min(1.0, float(r.get("confidence", 0))))
+        reason = r.get("reason", "")
+        vendor = r.get("vendor", "")
+        invoice_no = r.get("invoice_no", "")
+        items = r.get("items", [])
+        summary = " / ".join(items) if items else (vendor or "发票")
+
+        # 5. 映射到 user(飞书 open_id → users 表)
+        user = _get_or_create_user_by_open_id(sender_open_id)
+
+        # 6. 入库
+        conn = sqlite3.connect(DB_PATH)
+        try:
+            c = conn.cursor()
+            c.execute(
+                "INSERT INTO transactions (source, amount, summary, level1, level2, confidence, reason, vendor, invoice_no, invoice_text, user_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                ("发票", amount, summary, level1, level2, confidence, reason, vendor, invoice_no, invoice_text[:5000], user["id"] if user else None),
+            )
+            conn.commit()
+        finally:
+            conn.close()
+
+        # 7. 回复结果
+        conf_emoji = "✅" if confidence >= 0.8 else "⚠️" if confidence >= 0.5 else "❓"
+        lines = [
+            f"✅ 发票已解析入库",
+            "",
+            f"发票号: {invoice_no or '—'}",
+            f"销售方: {vendor or '—'}",
+            f"金额: ¥{amount:,.2f}",
+            f"科目: {level1} / {level2}",
+            f"{conf_emoji} 置信度: {confidence*100:.0f}%",
+            f"理由: {reason}",
+        ]
+        if user:
+            lines.append(f"归属: {user['name']}")
+        lines.append("")
+        lines.append('发送"管报"查看汇总')
+        feishu_send_text(chat_id, "\n".join(lines))
+
+    except Exception as e:
+        try:
+            feishu_send_text(chat_id, f"❌ 处理文件时出错: {e}")
+        except Exception:
+            pass
+
+
 def _handle_feishu_message(text, chat_id):
     """处理飞书消息指令,异步调用(不阻塞 webhook 响应)"""
     text = (text or "").strip()
@@ -1743,11 +1872,25 @@ def webhook():
         content = {}
     text = content.get("text", "")
 
+    # 获取消息类型和发送者
+    msg_type = msg.get("message_type", "")
+    sender = event.get("sender", {}).get("sender_id", {}).get("open_id", "")
+
     # 异步处理(不阻塞 webhook 响应)
-    if chat_id and text:
+    if chat_id:
         import threading
-        t = threading.Thread(target=_handle_feishu_message, args=(text, chat_id), daemon=True)
-        t.start()
+        if msg_type in ("image", "file"):
+            # 图片/文件消息 → 发票上传流程
+            t = threading.Thread(
+                target=_handle_feishu_file_message,
+                args=(msg_id, msg_type, content, chat_id, sender),
+                daemon=True,
+            )
+            t.start()
+        elif text:
+            # 文本消息 → 指令处理
+            t = threading.Thread(target=_handle_feishu_message, args=(text, chat_id), daemon=True)
+            t.start()
 
     return jsonify({"ok": True})
 

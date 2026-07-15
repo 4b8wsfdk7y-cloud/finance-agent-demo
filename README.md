@@ -155,6 +155,23 @@ AI 简评(LLM 生成 3-5 条财务点评)
 
 ## 📝 更新日志
 
+### 2026-07-15 (D8) — UI 精化 + 发票流重构 + 权限分层 + 飞书上传
+- 🎨 UI 重设计 — 深色玻璃拟态风格,标题宋体(Songti SC),正文楷体(Kaiti SC),数字英文无衬线
+- 🧾 发票流重构 — `/api/upload` 从 Excel 改为纯发票流:PDF/图片 → OCR 提取 → AI 解析+归一化 → 入库
+- 🧾 transactions 表加 `vendor` / `invoice_no` / `invoice_text` / `user_id` 字段(ALTER TABLE 兼容旧库)
+- 🧾 `INVOICE_PARSE_PROMPT` 一步提取 invoice_no/invoice_date/vendor/amount/items + level1/level2/confidence/reason
+- 🔐 权限分层 — users 表(id/name/role/pin/feishu_open_id) + `/login` `/logout` + Flask session
+- 🔐 3 个预置账号:财务管理员(1234, scope=all)/ 张三(1111, scope=mine)/ 李四(2222, scope=mine)
+- 🔐 `/api/report/preview?scope=mine|all` 按角色过滤:普通员工强制 mine,财务可选 all
+- 🔐 所有页面加 `_current_user()` 检查,未登录跳 `/login`
+- 🤖 飞书 Bot 上传发票 — webhook 支持 image/file 消息类型,下载 → OCR → AI 解析 → 入库 → 回复
+- 🤖 `feishu_client.download_message_file()` — lark-cli `im message_resource get` 下载图片/文件
+- 🤖 `_get_or_create_user_by_open_id()` — 飞书 open_id → users 表自动建档为 employee
+- 🤖 `_handle_feishu_file_message()` — 完整处理链:下载 → 文本提取 → AI 解析 → 入库(带 user_id) → Bot 回复
+- 🧪 `TestUpload` 重写为发票流测试(5 个)
+- 🧪 `TestAuth` 新增权限分层测试(7 个):未登录跳转/登录页/登录成功/错误 PIN/登出/财务看全部/员工强制 mine
+- 🧪 测试总数: 37 → 49 个(全绿)
+
 ### 2026-07-13 (D6) — 飞书 Bot 交互
 - 🤖 飞书 Bot webhook 实现 — `/webhook` 支持 v2 事件格式,收到消息异步处理
 - 🤖 4 个指令: 管报(汇总)/绩效(试算)/简评(AI 点评)/帮助(指令列表)

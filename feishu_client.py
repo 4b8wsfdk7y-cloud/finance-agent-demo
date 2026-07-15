@@ -84,3 +84,41 @@ def send_post(receive_id, title, paragraphs, receive_id_type="chat_id"):
     if result.get("ok"):
         return {"ok": True, "code": 0}
     return {"ok": False, "error": result.get("error", ""), "raw": result}
+
+
+def download_message_file(message_id, file_key, file_type="file", timeout=60):
+    """下载飞书消息中的图片或文件附件。
+
+    Args:
+        message_id: 消息 ID (om_xxx)
+        file_key: 文件 key (file_xxx 或 img_xxx)
+        file_type: "file" 或 "image"
+    Returns:
+        {"ok": True, "data": bytes} 或 {"ok": False, "error": str}
+    """
+    # lark-cli im message_resource get --message-id xxx --file-key xxx --type file|image
+    import tempfile
+    import os
+    try:
+        with tempfile.NamedTemporaryFile(suffix="_feishu_dl", delete=False) as tmp:
+            tmp_path = tmp.name
+        r = subprocess.run(
+            [LARK_CLI, "im", "message_resource", "get",
+             "--message-id", message_id,
+             "--file-key", file_key,
+             "--type", file_type,
+             "--output", tmp_path],
+            capture_output=True, text=True, timeout=timeout,
+        )
+        if r.returncode != 0:
+            return {"ok": False, "error": r.stderr[:500] or f"exit {r.returncode}"}
+        with open(tmp_path, "rb") as f:
+            data = f.read()
+        os.unlink(tmp_path)
+        if not data:
+            return {"ok": False, "error": "下载文件为空"}
+        return {"ok": True, "data": data}
+    except subprocess.TimeoutExpired:
+        return {"ok": False, "error": "下载超时"}
+    except Exception as e:
+        return {"ok": False, "error": str(e)}
