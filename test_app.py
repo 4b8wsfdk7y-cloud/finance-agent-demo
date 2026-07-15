@@ -106,6 +106,24 @@ class TestAuth(FinanceAppTestCase):
         self.assertTrue(data["ok"])
         self.assertEqual(data["total_count"], 3)
 
+    def test_financial_default_scope_all(self):
+        """财务角色不传 scope 时默认 all(看全部)"""
+        self._insert_mock_data(3)
+        r = self.client.get("/api/report/preview")  # 不传 scope
+        data = r.get_json()
+        self.assertTrue(data["ok"])
+        self.assertEqual(data["total_count"], 3)
+
+    def test_employee_default_scope_mine(self):
+        """普通员工不传 scope 时默认 mine(只看自己)"""
+        self._insert_mock_data(3)  # 财务插入 3 条
+        with self.client.session_transaction() as sess:
+            sess["user_id"] = 2  # 张三
+        r = self.client.get("/api/report/preview")  # 不传 scope
+        data = r.get_json()
+        self.assertTrue(data["ok"])
+        self.assertEqual(data["total_count"], 0)  # 张三没数据
+
     def test_employee_forced_mine(self):
         """普通员工 scope=all 被强制改成 mine"""
         # 先以财务登录插入数据

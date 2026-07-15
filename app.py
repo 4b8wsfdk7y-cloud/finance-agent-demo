@@ -1349,9 +1349,10 @@ def report_preview():
     u = _current_user()
     if not u:
         return jsonify({"ok": False, "error": "未登录"}), 401
-    scope = request.args.get("scope", "mine")
-    # 普通员工强制 mine;财务可选 all
-    if u["role"] != "financial":
+    # 财务角色默认 all(看全部);普通员工默认且强制 mine(只看自己)
+    if u["role"] == "financial":
+        scope = request.args.get("scope", "all")
+    else:
         scope = "mine"
     conn = sqlite3.connect(DB_PATH)
     try:
