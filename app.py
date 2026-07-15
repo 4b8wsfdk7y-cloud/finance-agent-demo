@@ -1418,7 +1418,7 @@ def _generate_commentary(rows, overall):
     report_data = _build_report_text(rows, overall)
     cache_key = hash(report_data)
     if cache_key in _COMMENTARY_CACHE:
-        return _COMMENTARY_CACHE[cache_key]
+        return _COMMENTARY_CACHE[cache_key], None
     prompt = REPORT_COMMENTARY_PROMPT.format(report_data=report_data)
     result = chat([
         {"role": "system", "content": "你是财务分析师,正在给同事做管报简评。直接输出 3-5 行简评,每行一个要点。"},
@@ -1667,6 +1667,7 @@ _MAX_MSG_CACHE = 200
 
 def _handle_feishu_file_message(msg_id, msg_type, content, chat_id, sender_open_id):
     """处理飞书图片/文件消息:下载 → OCR → AI 解析 → 入库 → 回复"""
+    print(f"[FILE_HANDLER] start msg_id={msg_id} type={msg_type} content_keys={list(content.keys())}", flush=True)
     try:
         # 提取 file_key / image_key
         if msg_type == "image":
@@ -1775,6 +1776,7 @@ def _handle_feishu_file_message(msg_id, msg_type, content, chat_id, sender_open_
 
 def _handle_feishu_message(text, chat_id):
     """处理飞书消息指令,异步调用(不阻塞 webhook 响应)"""
+    print(f"[MSG_HANDLER] text={text}", flush=True)
     text = (text or "").strip()
     try:
         if "帮助" in text or text.lower() in ("help", "?", "？"):
@@ -1876,6 +1878,7 @@ def webhook():
     msg_type = msg.get("message_type", "")
     sender = event.get("sender", {}).get("sender_id", {}).get("open_id", "")
 
+    print(f"[WEBHOOK] msg_type={msg_type} chat_id={chat_id} sender={sender} text={text[:50] if text else ''}", flush=True)
     # 异步处理(不阻塞 webhook 响应)
     if chat_id:
         import threading

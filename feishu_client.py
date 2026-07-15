@@ -96,25 +96,39 @@ def download_message_file(message_id, file_key, file_type="file", timeout=60):
     Returns:
         {"ok": True, "data": bytes} 或 {"ok": False, "error": str}
     """
-    # lark-cli im message_resource get --message-id xxx --file-key xxx --type file|image
-    import tempfile
     import os
+    import json
+    # lark-cli --output 不允许绝对路径,只能相对路径
+    # 切到 /tmp 下载,再读回 bytes
+    cwd = os.getcwd()
+    tmp_name = f"feishu_dl_{os.getpid()}_{int(__import__('time').time()*1000)}"
     try:
-        with tempfile.NamedTemporaryFile(suffix="_feishu_dl", delete=False) as tmp:
-            tmp_path = tmp.name
+        os.chdir("/tmp")
         r = subprocess.run(
-            [LARK_CLI, "im", "message_resource", "get",
+            [LARK_CLI, "im", "+messages-resources-download",
              "--message-id", message_id,
              "--file-key", file_key,
              "--type", file_type,
-             "--output", tmp_path],
+             "--output", tmp_name,
+             "--profile", "finance-bot"],
             capture_output=True, text=True, timeout=timeout,
         )
         if r.returncode != 0:
             return {"ok": False, "error": r.stderr[:500] or f"exit {r.returncode}"}
-        with open(tmp_path, "rb") as f:
+        # 解析 stdout JSON 拿 saved_path
+        try:
+            out = json.loads(r.stdout)
+            if not out.get("ok"):
+                return {"ok": False, "error": out.get("error", {}).get("message", "lark-cli 返回失败")}
+            saved_path = out.get("data", {}).get("saved_path", os.path.join("/tmp", tmp_name))
+        except (json.JSONDecodeError, AttributeError):
+            saved_path = os.path.join("/tmp", tmp_name)
+        with open(saved_path, "rb") as f:
             data = f.read()
-        os.unlink(tmp_path)
+        try:
+            os.unlink(saved_path)
+        except OSError:
+            pass
         if not data:
             return {"ok": False, "error": "下载文件为空"}
         return {"ok": True, "data": data}
@@ -122,3 +136,5 @@ def download_message_file(message_id, file_key, file_type="file", timeout=60):
         return {"ok": False, "error": "下载超时"}
     except Exception as e:
         return {"ok": False, "error": str(e)}
+    finally:
+        os.chdir(cwd)
