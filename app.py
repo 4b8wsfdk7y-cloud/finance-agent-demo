@@ -356,7 +356,7 @@ async function loadReport(){
     const rbody=document.getElementById('recent-tbody');
     if(d.recent&&d.recent.length){
         rbody.innerHTML=d.recent.map(r=>{
-            const dt=r.created_at?r.created_at.slice(5,16):'-';
+            const dt=r.created_at?r.created_at.slice(5,10)+' '+r.created_at.slice(11,16):'-';
             const conf=r.confidence>=0.8?'<span style="color:#10b981">高</span>':r.confidence>=0.5?'<span style="color:#f59e0b">中</span>':'<span style="color:#ef4444">低</span>';
             const vendor=r.vendor||r.summary||'-';
             const inv=r.invoice_no||'-';
@@ -1404,13 +1404,15 @@ def report_preview():
         c = conn.cursor()
         if scope == "all":
             c.execute("""SELECT t.id, t.source, t.amount, t.summary, t.level1, t.level2,
-                                t.vendor, t.invoice_no, t.confidence, t.created_at,
+                                t.vendor, t.invoice_no, t.confidence,
+                                datetime(t.created_at,'+8 hours') as created_at,
                                 u.name as user_name
                          FROM transactions t LEFT JOIN users u ON t.user_id=u.id
                          ORDER BY t.id DESC LIMIT 10""")
         else:
             c.execute("""SELECT t.id, t.source, t.amount, t.summary, t.level1, t.level2,
-                                t.vendor, t.invoice_no, t.confidence, t.created_at,
+                                t.vendor, t.invoice_no, t.confidence,
+                                datetime(t.created_at,'+8 hours') as created_at,
                                 u.name as user_name
                          FROM transactions t LEFT JOIN users u ON t.user_id=u.id
                          WHERE t.user_id=? ORDER BY t.id DESC LIMIT 10""", (u["id"],))
