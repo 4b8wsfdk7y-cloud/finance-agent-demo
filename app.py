@@ -324,6 +324,14 @@ td{padding:10px;border-bottom:1px solid #f0f0f5;font-size:14px}
         </table>
     </div>
     <div class="card">
+        <h2>ð 最新上传记录</h2>
+        <p style="color:#666;font-size:13px;margin-bottom:12px">最近 10 条流水(当前 scope: <span id="scope-label">-</span>)</p>
+        <table>
+            <thead><tr><th>时间</th><th>来源</th><th>销售方/摘要</th><th>发票号</th><th>金额</th><th>科目</th><th>置信度</th><th>归属</th></tr></thead>
+            <tbody id="recent-tbody"></tbody>
+        </table>
+    </div>
+    <div class="card">
         <h2>🤖 AI 简评</h2>
         <div id="commentary-area"><div class="loading"><div class="spin"></div><p style="margin-top:10px">AI 正在分析管报...</p></div></div>
     </div>
@@ -344,6 +352,19 @@ async function loadReport(){
     document.getElementById('total-count').textContent=d.total_count+' 笔';
     document.getElementById('total-amount').textContent='¥'+d.total_amount.toLocaleString();
     document.getElementById('cat-count').textContent=Object.keys(d.summary).length+' 个';
+    document.getElementById('scope-label').textContent=d.scope||'?';
+    const rbody=document.getElementById('recent-tbody');
+    if(d.recent&&d.recent.length){
+        rbody.innerHTML=d.recent.map(r=>{
+            const dt=r.created_at?r.created_at.slice(5,16):'-';
+            const conf=r.confidence>=0.8?'<span style="color:#10b981">高</span>':r.confidence>=0.5?'<span style="color:#f59e0b">中</span>':'<span style="color:#ef4444">低</span>';
+            const vendor=r.vendor||r.summary||'-';
+            const inv=r.invoice_no||'-';
+            return '<tr><td>'+dt+'</td><td>'+r.source+'</td><td>'+escapeHtml(vendor)+'</td><td>'+escapeHtml(inv)+'</td><td>¥'+r.amount.toLocaleString()+'</td><td>'+escapeHtml(r.level1)+'/'+escapeHtml(r.level2||'')+'</td><td>'+conf+' '+(r.confidence*100).toFixed(0)+'%</td><td>'+escapeHtml(r.user_name)+'</td></tr>';
+        }).join('');
+    }else{
+        rbody.innerHTML='<tr><td colspan="8" style="text-align:center;color:#999;padding:20px">暂无记录</td></tr>';
+    }
     const tbody=document.getElementById('report-tbody');
     const gt=d.total_amount;
     let html='';
@@ -1377,11 +1398,41 @@ def report_preview():
         summary[level1]["total"] += total or 0
         summary[level1]["count"] += cnt
         summary[level1]["items"].append({"level2": level2, "count": cnt, "total": round(total or 0, 2)})
+    # 取最近 10 条流水明细(按 scope 过滤)
+    conn = sqlite3.connect(DB_PATH)
+    try:
+        c = conn.cursor()
+        if scope == "all":
+            c.execute("""SELECT t.id, t.source, t.amount, t.summary, t.level1, t.level2,
+                                t.vendor, t.invoice_no, t.confidence, t.created_at,
+                                u.name as user_name
+                         FROM transactions t LEFT JOIN users u ON t.user_id=u.id
+                         ORDER BY t.id DESC LIMIT 10""")
+        else:
+            c.execute("""SELECT t.id, t.source, t.amount, t.summary, t.level1, t.level2,
+                                t.vendor, t.invoice_no, t.confidence, t.created_at,
+                                u.name as user_name
+                         FROM transactions t LEFT JOIN users u ON t.user_id=u.id
+                         WHERE t.user_id=? ORDER BY t.id DESC LIMIT 10""", (u["id"],))
+        recent_rows = c.fetchall()
+    finally:
+        conn.close()
+    recent = []
+    for r in recent_rows:
+        recent.append({
+            "id": r[0], "source": r[1], "amount": round(r[2] or 0, 2),
+            "summary": r[3] or "", "level1": r[4] or "未归类", "level2": r[5] or "",
+            "vendor": r[6] or "", "invoice_no": r[7] or "",
+            "confidence": r[8] or 0, "created_at": r[9] or "",
+            "user_name": r[10] or "未绑定",
+        })
     return jsonify({
         "ok": True,
         "total_count": overall[0],
         "total_amount": round(overall[1] or 0, 2),
         "summary": {k: {**v, "total": round(v["total"], 2)} for k, v in summary.items()},
+        "recent": recent,
+        "scope": scope,
     })
 
 # === D4: 管报页面 + AI 简评 + 飞书输出 ===
