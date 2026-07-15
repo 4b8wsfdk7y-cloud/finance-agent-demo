@@ -113,18 +113,28 @@ class TestStats(FinanceAppTestCase):
 class TestAlert(FinanceAppTestCase):
     """告警系统测试"""
 
+    def test_alert_skipped_when_no_chat_id(self):
+        """未配置 ALERT_CHAT_ID 时应跳过(返回 skipped:True)"""
+        r = self.client.post("/api/alert/test")
+        data = r.get_json()
+        self.assertFalse(data["ok"])
+        self.assertTrue(data.get("skipped"))
+        self.assertIn("未配置", data["message"])
+
+    @patch("monitor._ALERT_CHAT_ID", "oc_test_123")
     @patch("monitor._send_feishu_alert")
     def test_alert_test_endpoint(self, mock_send):
-        """测试告警端点应调用飞书发送"""
+        """配置了 ALERT_CHAT_ID 后应调用飞书发送"""
         mock_send.return_value = True
         r = self.client.post("/api/alert/test")
         data = r.get_json()
         self.assertTrue(data["ok"])
         mock_send.assert_called_once()
 
+    @patch("monitor._ALERT_CHAT_ID", "oc_test_123")
     @patch("monitor._send_feishu_alert")
     def test_alert_test_endpoint_no_feishu(self, mock_send):
-        """未配置飞书时应返回 ok:False"""
+        """飞书 API 返回失败时应返回 ok:False"""
         mock_send.return_value = False
         r = self.client.post("/api/alert/test")
         data = r.get_json()

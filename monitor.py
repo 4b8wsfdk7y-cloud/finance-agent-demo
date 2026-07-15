@@ -495,6 +495,9 @@ def init_monitor(app, service_name, db_path=None, llm_test_fn=None, log_dir=None
     @app.route("/api/alert/test", methods=["POST", "GET"])
     def _alert_test():
         """发送测试告警(验证飞书通道)"""
+        # 未配置飞书群时,直接返回明确提示(不算错误)
+        if not _ALERT_CHAT_ID:
+            return jsonify({"ok": False, "skipped": True, "message": "飞书推送未配置(ALERT_CHAT_ID 为空),已跳过。配置后可推送到飞书群。"})
         title = f"🧪 {_ALERT_SERVICE_NAME} 测试告警"
         paragraphs = [[
             {"tag": "text", "text": f"这是一条测试告警\n"},
@@ -505,7 +508,7 @@ def init_monitor(app, service_name, db_path=None, llm_test_fn=None, log_dir=None
         ok = _send_feishu_alert(title, paragraphs)
         if ok:
             return jsonify({"ok": True, "message": "测试告警已发送到飞书群"})
-        return jsonify({"ok": False, "error": "告警发送失败(未配置飞书或发送异常)"})
+        return jsonify({"ok": False, "error": "告警发送失败(飞书 API 返回错误,可能是 bot 未加入目标群)"})
 
     # === /monitor 仪表盘 ===
     @app.route("/monitor")
