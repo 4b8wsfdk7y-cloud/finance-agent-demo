@@ -230,7 +230,7 @@ class TestNormalizeBatch(FinanceAppTestCase):
 
 
 class TestUpload(FinanceAppTestCase):
-    """/api/upload 测试"""
+    """/api/upload 发票上传测试"""
 
     def test_no_file(self):
         r = self.client.post("/api/upload")
@@ -238,24 +238,98 @@ class TestUpload(FinanceAppTestCase):
         self.assertFalse(data["ok"])
         self.assertIn("file", data["error"])
 
-    def test_bad_source_type(self):
-        """非法 source_type 应被白名单拒绝(需同时传文件才能过 file 检查)"""
+    def test_empty_file(self):
+        """空文件应报错"""
         import io
-        from openpyxl import Workbook
-        wb = Workbook()
-        ws = wb.active
-        ws.append(["摘要", "金额"])
-        ws.append(["测试", 100])
-        buf = io.BytesIO()
-        wb.save(buf)
-        buf.seek(0)
         r = self.client.post("/api/upload", data={
-            "source_type": "恶意",
-            "file": (buf, "test.xlsx"),
+            "file": (io.BytesIO(b""), "empty.pdf"),
         }, content_type="multipart/form-data")
         data = r.get_json()
         self.assertFalse(data["ok"])
-        self.assertIn("source_type", data["error"])
+
+    def test_unsupported_format(self):
+        """不支持的文件格式应报错"""
+        import io
+        r = self.client.post("/api/upload", data={
+            "file": (io.BytesIO(b"hello"), "test.docx"),
+        }, content_type="multipart/form-data")
+        data = r.get_json()
+        self.assertFalse(data["ok"])
+        self.assertIn("不支持", data["error"])
+
+    def test_txt_invoice(self):
+        """TXT 发票文本应能提取并 AI 解析"""
+        import io
+        invoice_text = """增值税电子普通发票
+发票号码: 12345678
+开票日期: 2026-07-15
+销售方: 北京科技有限公司
+商品明细: Adobe Creative Cloud 月订阅
+价税合计: ¥1200.00"""
+        with patch("app.chat_json") as mock_chat:
+            mock_chat.return_value = {
+                "invoice_no": "12345678",
+                "invoice_date": "2026-07-15",
+                "vendor": "北京科技有限公司",
+                "amount": 1200.0,
+                "items": ["Adobe Creative Cloud 月订阅"],
+                "level1": "研发费",
+                "level2": "软件",
+                "confidence": 0.95,
+                "reason": "设计软件订阅",
+            }
+            r = self.client.post("/api/upload", data={
+                "file": (io.BytesIO(invoice_text.encode("utf-8")), "invoice.txt"),
+            }, content_type="multipart/form-data")
+        data = r.get_json()
+        self.assertTrue(data["ok"])
+        self.assertEqual(data["result"]["level1"], "研发费")
+        self.assertEqual(data["result"]["amount"], 1200.0)
+        self.assertEqual(data["result"]["invoice_no"], "12345678")
+
+    @patch("app.chat_json")
+    def test_llm_error(self, mock_chat):
+        """LLM 失败应返回错误"""
+        import io
+        mock_chat.return_value = {"_error": "LLM timeout", "raw": ""}
+        r = self.client.post("/api/upload", data={
+            "file": (io.BytesIO(b"some invoice text content here"), "inv.txt"),
+        }, content_type="multipart/form-data")
+        data = r.get_json()
+        self.assertFalse(data["ok"])
+
+    @patch("app.chat_json")
+    def test_invoice_stored_in_db(self, mock_chat):
+        """发票解析后应存入 transactions 表,含 vendor/invoice_no 字段"""
+        import sqlite3
+        mock_chat.return_value = {
+            "invoice_no": "INV-001",
+            "invoice_date": "2026-07-15",
+            "vendor": "测试供应商",
+            "amount": 5000,
+            "items": ["服务器采购"],
+            "level1": "营业成本",
+            "level2": "硬件",
+            "confidence": 0.9,
+            "reason": "服务器采购",
+        }
+        import io
+        r = self.client.post("/api/upload", data={
+            "file": (io.BytesIO(b"fake invoice text content for testing"), "inv.txt"),
+        }, content_type="multipart/form-data")
+        data = r.get_json()
+        self.assertTrue(data["ok"])
+
+        conn = sqlite3.connect(self.db_path)
+        c = conn.cursor()
+        c.execute("SELECT vendor, invoice_no, amount, level1 FROM transactions WHERE id=?", (data["transaction_id"],))
+        row = c.fetchone()
+        conn.close()
+        self.assertIsNotNone(row)
+        self.assertEqual(row[0], "测试供应商")
+        self.assertEqual(row[1], "INV-001")
+        self.assertEqual(row[2], 5000)
+        self.assertEqual(row[3], "营业成本")
 
 
 class TestReportPreview(FinanceAppTestCase):

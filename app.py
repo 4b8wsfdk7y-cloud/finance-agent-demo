@@ -38,6 +38,20 @@ def init_db():
         reason TEXT,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )""")
+    # === 发票流改造:给 transactions 表加字段(兼容旧库) ===
+    try:
+        c.execute("ALTER TABLE transactions ADD COLUMN vendor TEXT")
+    except Exception:
+        pass
+    try:
+        c.execute("ALTER TABLE transactions ADD COLUMN invoice_no TEXT")
+    except Exception:
+        pass
+    try:
+        c.execute("ALTER TABLE transactions ADD COLUMN invoice_text TEXT")
+    except Exception:
+        pass
+
     # D5: 绩效规则表
     c.execute("""CREATE TABLE IF NOT EXISTS performance_rules (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -72,6 +86,12 @@ init_monitor(app, service_name="finance-agent", db_path=DB_PATH, llm_test_fn=tes
              alert_feishu_fn=feishu_send_post, alert_chat_id=ALERT_CHAT_ID)
 
 # === 口径规则 ===
+
+# === OCR 配置(发票扫描件识别) ===
+_OCR_MAX_PAGES = 50
+_OCR_DPI = 200
+_OCR_MIN_CHARS = 20
+
 ACCOUNTING_RULES = """
 一、研发费:
   - 研发人员薪酬(直接归属研发项目)
@@ -121,6 +141,37 @@ NORMALIZE_PROMPT = """你是财务归类助手。根据以下流水信息,归一
   "reason": "30字以内判断依据"
 }}
 """
+
+# === 发票解析+归一化 Prompt(一步到位) ===
+INVOICE_PARSE_PROMPT = """你是财务发票解析助手。从 OCR 提取的发票文本中,提取结构化字段并归一化科目。
+
+## 口径规则
+{rules}
+
+## 发票 OCR 文本
+{invoice_text}
+
+## 输出要求
+返回 JSON(不要其他文字):
+{{
+  "invoice_no": "发票号码(没找到则空字符串)",
+  "invoice_date": "开票日期 YYYY-MM-DD(没找到则空)",
+  "vendor": "销售方名称(没找到则空)",
+  "amount": 0.0,
+  "items": ["商品/服务明细1", "商品/服务明细2"],
+  "level1": "研发费|销售费|管理费|营业成本",
+  "level2": "二级科目(如:差旅费/薪酬/软件/招待费/办公用品等)",
+  "confidence": 0.0到1.0,
+  "reason": "30字以内判断依据"
+}}
+
+注意:
+- amount 是价税合计金额(发票总金额),纯数字不要带¥或元
+- 如果有多行商品,items 列出每行
+- 如果 OCR 文本残缺无法判断,confidence 给低分(0.3 以下),level1 给最可能猜测
+- 如果完全不是发票(如普通文本),level1 给"未归类",confidence 给 0
+"""
+
 
 # === D4: AI 简评 Prompt ===
 REPORT_COMMENTARY_PROMPT = """你是财务分析师。根据以下管报汇总数据,写出 3-5 条简短点评。
@@ -716,152 +767,122 @@ UPLOAD_HTML = """<!DOCTYPE html>
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>上传数据 — 财务 Agent</title>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<title>发票上传 · 财务 Agent</title>
 <style>
-:root{--primary:#667eea;--primary-dark:#764ba2;--accent:#52c41a;--warn:#fa8c16;--danger:#f5222d;--bg:#f0f2f5;--card:#fff;--text:#1a1a2e;--text-light:#666;--border:#e8e8e8;--radius:16px;--shadow:0 4px 24px rgba(0,0,0,.06)}
+:root{--c-primary:#6366f1;--c-primary-3:#a855f7;--c-bg:#0f0f1a;--c-surface:rgba(255,255,255,.04);--c-surface-2:rgba(255,255,255,.08);--c-text:#e4e4e7;--c-text-dim:#a1a1aa;--c-text-muted:#71717a;--c-border:rgba(255,255,255,.08);--c-border-hover:rgba(139,92,246,.4);--c-green:#10b981;--c-amber:#f59e0b;--c-red:#ef4444;--radius:16px}
 *{margin:0;padding:0;box-sizing:border-box}
-body{font-family:'Inter',-apple-system,"PingFang SC",sans-serif;background:var(--bg);color:var(--text);line-height:1.6}
-.container{max-width:900px;margin:0 auto;padding:24px}
-.hero{background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);color:#fff;padding:32px;border-radius:var(--radius);margin-bottom:24px}
-.hero h1{font-size:24px;font-weight:700;margin-bottom:4px}
-.hero p{opacity:.9;font-size:14px}
-.card{background:var(--card);padding:28px;border-radius:var(--radius);box-shadow:var(--shadow);margin-bottom:20px}
-.card h2{font-size:18px;font-weight:600;margin-bottom:16px;display:flex;align-items:center;gap:8px}
-.source-select{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:8px}
-.source-option{padding:16px;border:2px solid var(--border);border-radius:12px;text-align:center;cursor:pointer;transition:all .3s;font-weight:500}
-.source-option:hover{border-color:var(--primary);background:#f0f5ff}
-.source-option.selected{border-color:var(--primary);background:linear-gradient(135deg,#f0f5ff,#fff);color:var(--primary);font-weight:600}
-.source-option .src-icon{font-size:28px;margin-bottom:4px}
-.source-option .src-name{font-size:14px}
-.drop-zone{border:2px dashed var(--border);border-radius:12px;padding:48px;text-align:center;color:var(--text-light);cursor:pointer;transition:all .3s;background:#fafafa}
-.drop-zone:hover{border-color:var(--primary);background:#f0f5ff;transform:scale(1.01)}
-.drop-zone.dragover{border-color:var(--primary);background:#f0f5ff}
-.drop-zone.has-file{border-color:var(--accent);background:#f6ffed;color:var(--accent)}
-.drop-icon{font-size:48px;margin-bottom:8px}
+body{font-family:-apple-system,BlinkMacSystemFont,"Helvetica Neue","Kaiti SC","STKaiti","楷体",sans-serif;background:var(--c-bg);color:var(--c-text);line-height:1.6;min-height:100vh}
+body::before{content:'';position:fixed;inset:0;z-index:-1;background:radial-gradient(ellipse 80% 50% at 20% 0%,rgba(99,102,241,.15),transparent),radial-gradient(ellipse 60% 50% at 80% 30%,rgba(168,85,247,.12),transparent),var(--c-bg)}
+.nav{position:sticky;top:0;z-index:100;backdrop-filter:blur(20px);background:rgba(15,15,26,.7);border-bottom:1px solid var(--c-border)}
+.nav-inner{max-width:900px;margin:0 auto;padding:14px 24px;display:flex;align-items:center;justify-content:space-between}
+.nav-brand{font-family:-apple-system,BlinkMacSystemFont,"Helvetica Neue","Songti SC","STSong","宋体",sans-serif;display:flex;align-items:center;gap:10px;font-size:16px;font-weight:700;color:var(--c-text);text-decoration:none}
+.nav-brand-icon{width:32px;height:32px;border-radius:10px;background:linear-gradient(135deg,var(--c-primary),var(--c-primary-3));display:flex;align-items:center;justify-content:center;font-size:16px}
+.nav a{color:var(--c-text-dim);text-decoration:none;font-size:13.5px;margin-left:16px}
+.nav a:hover{color:var(--c-text)}
+.wrap{max-width:900px;margin:0 auto;padding:32px 24px}
+h1{font-family:-apple-system,BlinkMacSystemFont,"Helvetica Neue","Songti SC","STSong","宋体",sans-serif;font-size:28px;font-weight:800;margin-bottom:8px}
+.subtitle{color:var(--c-text-dim);margin-bottom:32px}
+.card{background:var(--c-surface);border:1px solid var(--c-border);border-radius:var(--radius);padding:28px;margin-bottom:20px}
+.drop{border:2px dashed var(--c-border);border-radius:12px;padding:48px 24px;text-align:center;cursor:pointer;transition:all .3s;background:rgba(255,255,255,.02)}
+.drop:hover{border-color:var(--c-border-hover);background:rgba(139,92,246,.05)}
+.drop.dragover{border-color:var(--c-primary);background:rgba(99,102,241,.08)}
+.drop.has-file{border-color:var(--c-green);background:rgba(16,185,129,.06)}
+.drop-icon{font-size:48px;margin-bottom:12px}
 .drop-text{font-size:16px;font-weight:600;margin-bottom:4px}
-.drop-hint{font-size:13px;opacity:.7}
-.btn{display:inline-flex;align-items:center;gap:6px;padding:14px 36px;background:linear-gradient(135deg,var(--primary),var(--primary-dark));color:#fff;border:none;border-radius:12px;font-size:15px;font-weight:600;cursor:pointer;transition:all .3s;box-shadow:0 4px 16px rgba(102,126,234,.3)}
-.btn:hover:not(:disabled){transform:translateY(-2px);box-shadow:0 6px 24px rgba(102,126,234,.4)}
-.btn:disabled{background:#d9d9d9;cursor:not-allowed;box-shadow:none}
-a{color:var(--primary);text-decoration:none;font-weight:500}
-a:hover{text-decoration:underline}
-.result-box{margin-top:16px}
-.result-success{background:linear-gradient(135deg,#f6ffed,#fff);border:1px solid #b7eb8f;border-radius:12px;padding:16px;margin-bottom:12px}
-.result-table{width:100%;border-collapse:collapse;font-size:13px;margin-top:8px}
-.result-table th{background:linear-gradient(135deg,var(--primary),var(--primary-dark));color:#fff;padding:10px;text-align:left;font-weight:600}
-.result-table th:first-child{border-radius:8px 0 0 0}
-.result-table th:last-child{border-radius:0 8px 0 0}
-.result-table td{padding:10px;border-bottom:1px solid var(--border)}
-.result-table tr:hover{background:#f0f5ff}
-.lvl-tag{display:inline-block;padding:2px 10px;border-radius:10px;font-size:12px;font-weight:600}
-.lvl-dev{background:#f0f5ff;color:#667eea}
-.lvl-sales{background:#fff7e6;color:#fa8c16}
-.lvl-mgmt{background:#f6ffed;color:#52c41a}
-.lvl-cost{background:#fff0f6;color:#eb2f96}
-.loading{display:inline-block;width:20px;height:20px;border:3px solid var(--border);border-top-color:var(--primary);border-radius:50%;animation:spin 1s linear infinite;margin-right:8px;vertical-align:middle}
+.drop-hint{font-size:13px;color:var(--c-text-muted)}
+.btn{display:inline-flex;align-items:center;gap:8px;padding:13px 36px;border-radius:12px;font-size:15px;font-weight:600;border:none;cursor:pointer;font-family:inherit;transition:all .25s}
+.btn-primary{background:linear-gradient(135deg,var(--c-primary),var(--c-primary-3));color:#fff;box-shadow:0 4px 20px rgba(99,102,241,.4)}
+.btn-primary:hover:not(:disabled){transform:translateY(-2px);box-shadow:0 6px 28px rgba(99,102,241,.5)}
+.btn:disabled{background:var(--c-surface-2);color:var(--c-text-muted);cursor:not-allowed;box-shadow:none}
+.loading{display:inline-block;width:18px;height:18px;border:2px solid var(--c-border);border-top-color:var(--c-primary);border-radius:50%;animation:spin 1s linear infinite;vertical-align:middle;margin-right:8px}
 @keyframes spin{to{transform:rotate(360deg)}}
-.back-link{display:inline-flex;align-items:center;gap:4px;color:var(--text-light);font-size:14px;margin-top:16px}
+.result{margin-top:20px}
+.result-card{background:var(--c-surface);border:1px solid var(--c-border);border-radius:12px;padding:20px;margin-bottom:12px}
+.field-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px 24px}
+.field{display:flex;flex-direction:column;gap:2px}
+.field-label{font-size:12px;color:var(--c-text-muted);font-weight:600;letter-spacing:.3px}
+.field-value{font-size:14px;color:var(--c-text);font-weight:500}
+.lvl-tag{display:inline-block;padding:2px 10px;border-radius:10px;font-size:12px;font-weight:600}
+.lvl-dev{background:rgba(99,102,241,.15);color:#818cf8;border:1px solid rgba(99,102,241,.3)}
+.lvl-sales{background:rgba(245,158,11,.15);color:#fbbf24;border:1px solid rgba(245,158,11,.3)}
+.lvl-mgmt{background:rgba(16,185,129,.15);color:#34d399;border:1px solid rgba(16,185,129,.3)}
+.lvl-cost{background:rgba(236,72,153,.15);color:#f472b6;border:1px solid rgba(236,72,153,.3)}
+.confidence-bar{height:6px;border-radius:3px;background:var(--c-surface-2);overflow:hidden;margin-top:4px}
+.confidence-fill{height:100%;border-radius:3px;transition:width .5s}
+.ocr-preview{margin-top:12px;padding:12px;background:rgba(0,0,0,.2);border-radius:8px;font-size:12px;color:var(--c-text-muted);max-height:200px;overflow-y:auto;white-space:pre-wrap;font-family:monospace}
+.items-list{display:flex;flex-wrap:wrap;gap:6px}
+.item-tag{padding:4px 10px;background:var(--c-surface-2);border-radius:6px;font-size:12px;color:var(--c-text-dim)}
+.back{display:inline-flex;align-items:center;gap:4px;color:var(--c-text-muted);font-size:13px;text-decoration:none;margin-top:16px}
+.back:hover{color:var(--c-text)}
+.error{background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.3);color:#fca5a5;padding:12px 16px;border-radius:8px;margin-top:12px}
 </style>
 </head>
 <body>
-<div class="container">
-  <div class="hero">
-    <h1>📊 上传财务数据</h1>
-    <p>选择数据源类型 → 上传 Excel/CSV → AI 自动归一化</p>
-  </div>
+<nav class="nav"><div class="nav-inner">
+  <a class="nav-brand" href="/"><span class="nav-brand-icon">💰</span>Finance Agent</a>
+  <div><a href="/">首页</a><a href="/report">管报</a><a href="/performance">绩效</a></div>
+</div></nav>
+
+<div class="wrap">
+  <h1>📄 发票上传</h1>
+  <p class="subtitle">上传发票 PDF 或图片 → OCR 提取 → AI 解析字段 + 归一化科目 → 入库</p>
 
   <div class="card">
-    <h2>🗂️ 选择数据源类型</h2>
-    <div class="source-select">
-      <div class="source-option selected" data-source="报销">
-        <div class="src-icon">🧾</div>
-        <div class="src-name">报销数据</div>
-      </div>
-      <div class="source-option" data-source="对公支付">
-        <div class="src-icon">🏢</div>
-        <div class="src-name">对公支付</div>
-      </div>
-      <div class="source-option" data-source="工资">
-        <div class="src-icon">💰</div>
-        <div class="src-name">工资数据</div>
-      </div>
+    <div class="drop" id="drop">
+      <div class="drop-icon">🧾</div>
+      <div class="drop-text">点击或拖拽发票到此处</div>
+      <div class="drop-hint">支持 PDF / JPG / PNG(扫描件自动 OCR)· 单文件</div>
     </div>
-  </div>
-
-  <div class="card">
-    <h2>📤 上传文件</h2>
-    <div class="drop-zone" id="drop">
-      <div class="drop-icon">📁</div>
-      <div class="drop-text">点击或拖拽文件到此处</div>
-      <div class="drop-hint">支持 Excel (.xlsx/.xls) 和 CSV 格式 · 表头需含「金额」和「摘要」</div>
-    </div>
-    <input type="file" id="file" accept=".xlsx,.xls,.csv" style="display:none">
+    <input type="file" id="file" accept=".pdf,.png,.jpg,.jpeg,.tif,.tiff,.bmp,.txt" style="display:none">
     <div style="text-align:center;margin-top:20px">
-      <button class="btn" id="upload-btn" disabled>🚀 上传并归一化</button>
+      <button class="btn btn-primary" id="btn" disabled>🚀 上传并解析</button>
     </div>
-    <div class="result-box" id="result"></div>
-    <div style="text-align:center">
-      <a href="/" class="back-link">← 返回首页</a>
-      &nbsp;|&nbsp;
-      <a href="/api/report/preview" target="_blank" class="back-link" style="color:#722ed1">📈 查看管报预览 →</a>
-    </div>
+    <div class="result" id="result"></div>
+    <a href="/" class="back">← 返回首页</a>
+    <a href="/api/report/preview" target="_blank" class="back" style="margin-left:16px;color:#a78bfa">📈 查看管报 →</a>
   </div>
 </div>
+
 <script>
-function escapeHtml(s){if(s==null)return '';return String(s).replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]))}
-let selectedSource='报销';
-document.querySelectorAll('.source-option').forEach(opt=>{
-  opt.addEventListener('click',()=>{
-    document.querySelectorAll('.source-option').forEach(o=>o.classList.remove('selected'));
-    opt.classList.add('selected');
-    selectedSource=opt.dataset.source;
-  });
-});
-const zone=document.getElementById('drop');
-const file=document.getElementById('file');
-const btn=document.getElementById('upload-btn');
-const result=document.getElementById('result');
+function escapeHtml(s){if(s==null)return'';return String(s).replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]))}
+const zone=document.getElementById('drop'),file=document.getElementById('file'),btn=document.getElementById('btn'),result=document.getElementById('result');
 zone.addEventListener('click',()=>file.click());
 zone.addEventListener('dragover',e=>{e.preventDefault();zone.classList.add('dragover')});
-zone.addEventListener('dragleave',e=>{zone.classList.remove('dragover')});
-zone.addEventListener('drop',e=>{
-  e.preventDefault();
-  zone.classList.remove('dragover');
-  if(e.dataTransfer.files.length){file.files=e.dataTransfer.files;showFile()}
-});
+zone.addEventListener('dragleave',()=>zone.classList.remove('dragover'));
+zone.addEventListener('drop',e=>{e.preventDefault();zone.classList.remove('dragover');if(e.dataTransfer.files.length){file.files=e.dataTransfer.files;showFile()}});
 file.addEventListener('change',showFile);
-function showFile(){
-  if(file.files.length){
-    zone.innerHTML='<div class="drop-icon">✅</div><div class="drop-text">'+escapeHtml(file.files[0].name)+'</div><div class="drop-hint">点击重新选择</div>';
-    zone.classList.add('has-file');
-    btn.disabled=false;
-  }
-}
+function showFile(){if(file.files.length){zone.innerHTML='<div class="drop-icon">✅</div><div class="drop-text">'+escapeHtml(file.files[0].name)+'</div><div class="drop-hint">'+(file.files[0].size/1024).toFixed(1)+' KB · 点击重新选择</div>';zone.classList.add('has-file');btn.disabled=false}}
 btn.addEventListener('click',async()=>{
   if(!file.files.length)return;
-  result.innerHTML='<div style="text-align:center;padding:24px"><span class="loading"></span>上传 + AI 归一化中(每条约 2 秒)...</div>';
-  const fd=new FormData();
-  fd.append('file',file.files[0]);
-  fd.append('source_type',selectedSource);
+  result.innerHTML='<div style="text-align:center;padding:32px"><span class="loading"></span>OCR 提取 + AI 解析中(约 10-30 秒)...</div>';
+  const fd=new FormData();fd.append('file',file.files[0]);
   try{
     const r=await fetch('/api/upload',{method:'POST',body:fd});
     const j=await r.json();
     if(j.ok){
-      const lvlClass={'研发费':'lvl-dev','销售费':'lvl-sales','管理费':'lvl-mgmt','营业成本':'lvl-cost'};
-      let html='<div class="result-success"><b>✅ '+j.count+' 条数据已归一化入库</b></div>';
-      html+='<table class="result-table"><thead><tr><th>摘要</th><th>金额</th><th>一级</th><th>二级</th></tr></thead><tbody>';
-      j.results.forEach(r=>{
-        const cls=lvlClass[r.level1]||'lvl-dev';
-        html+='<tr><td>'+escapeHtml(r.summary)+'</td><td>¥'+escapeHtml(String(r.amount))+'</td><td><span class="lvl-tag '+cls+'">'+escapeHtml(r.level1)+'</span></td><td>'+escapeHtml(r.level2)+'</td></tr>';
-      });
-      html+='</tbody></table>';
-      html+='<div style="text-align:center;margin-top:12px"><a href="/api/report/preview" target="_blank" style="color:#722ed1;font-weight:600">📈 查看管报预览 →</a></div>';
+      const d=j.result;
+      const lvlClass={'研发费':'lvl-dev','销售费':'lvl-sales','管理费':'lvl-mgmt','营业成本':'lvl-cost','未归类':'lvl-cost'};
+      const cls=lvlClass[d.level1]||'lvl-cost';
+      const confColor=d.confidence>=0.8?'#10b981':d.confidence>=0.5?'#f59e0b':'#ef4444';
+      let html='<div class="result-card"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px"><h2 style="font-size:18px;font-weight:700">✅ 解析完成</h2><span class="lvl-tag '+cls+'">'+escapeHtml(d.level1)+' / '+escapeHtml(d.level2)+'</span></div>';
+      html+='<div class="field-grid">';
+      html+='<div class="field"><span class="field-label">发票号码</span><span class="field-value">'+escapeHtml(d.invoice_no||'—')+'</span></div>';
+      html+='<div class="field"><span class="field-label">开票日期</span><span class="field-value">'+escapeHtml(d.invoice_date||'—')+'</span></div>';
+      html+='<div class="field"><span class="field-label">销售方</span><span class="field-value">'+escapeHtml(d.vendor||'—')+'</span></div>';
+      html+='<div class="field"><span class="field-label">金额</span><span class="field-value" style="font-size:18px;font-weight:700;color:#34d399">¥'+(d.amount||0).toLocaleString('zh-CN')+'</span></div>';
+      html+='</div>';
+      if(d.items&&d.items.length){html+='<div class="field" style="margin-top:12px"><span class="field-label">商品明细</span><div class="items-list">'+d.items.map(it=>'<span class="item-tag">'+escapeHtml(it)+'</span>').join('')+'</div></div>'}
+      html+='<div class="field" style="margin-top:12px"><span class="field-label">AI 判断</span><span class="field-value">'+escapeHtml(d.reason||'—')+'</span>';
+      html+='<div class="confidence-bar"><div class="confidence-fill" style="width:'+(d.confidence*100)+'%;background:'+confColor+'"></div></div>';
+      html+='<span style="font-size:11px;color:var(--c-text-muted)">置信度 '+(d.confidence*100).toFixed(0)+'%</span></div>';
+      if(j.ocr_text_preview){html+='<details style="margin-top:12px"><summary style="cursor:pointer;font-size:12px;color:var(--c-text-muted)">查看 OCR 原文</summary><div class="ocr-preview">'+escapeHtml(j.ocr_text_preview)+'</div></details>'}
+      html+='</div>';
+      html+='<div style="text-align:center;margin-top:12px"><a href="/api/report/preview" target="_blank" style="color:#a78bfa;font-weight:600;text-decoration:none">📈 查看管报预览 →</a></div>';
       result.innerHTML=html;
     }else{
-      result.innerHTML='<div style="color:red;padding:16px;background:#fff0f0;border-radius:8px">❌ '+escapeHtml(j.error||JSON.stringify(j))+'</div>';
+      result.innerHTML='<div class="error">❌ '+escapeHtml(j.error||JSON.stringify(j))+'</div>';
     }
-  }catch(e){result.innerHTML='<div style="color:red">错误: '+escapeHtml(e.message)+'</div>'}
+  }catch(e){result.innerHTML='<div class="error">❌ 网络错误: '+escapeHtml(e.message)+'</div>'}
 });
 </script>
 </body>
@@ -964,6 +985,87 @@ def normalize_batch():
     return jsonify({"ok": True, "count": len(results), "success_count": len([r for r in results if r.get("ok")]), "results": results})
 
 # === 数据上传 ===
+def _ocr_pdf(pdf_bytes):
+    """对扫描 PDF 做 OCR,返回 (text, error)。复用法务 Agent 的 OCR 实现。"""
+    try:
+        from pdf2image import convert_from_bytes
+        import pytesseract
+    except ImportError as e:
+        return None, f"OCR 依赖未安装: {e}"
+    try:
+        images = convert_from_bytes(pdf_bytes, dpi=_OCR_DPI, first_page=1, last_page=_OCR_MAX_PAGES)
+    except Exception as e:
+        return None, f"PDF 转图片失败: {e}"
+    if not images:
+        return None, "PDF 无可渲染页面"
+    pages_text = []
+    for img in images:
+        try:
+            pages_text.append(pytesseract.image_to_string(img, lang="chi_sim+eng").strip())
+        except Exception:
+            pages_text.append("")
+        img.close()
+    text = "\n\n".join(t for t in pages_text if t)
+    return text, None
+
+
+def extract_text_from_upload(f, filename):
+    """从上传文件提取文本。成功返回 str,失败返回 dict。
+    支持: PDF(文本型/扫描型), 图片(png/jpg,直接 OCR), TXT"""
+    raw = f.read()
+    if not raw:
+        return {"ok": False, "error": "文件为空"}
+
+    fl = filename.lower()
+
+    # --- 图片直接 OCR ---
+    if fl.endswith((".png", ".jpg", ".jpeg", ".tif", ".tiff", ".bmp")):
+        try:
+            import pytesseract
+            from PIL import Image
+            import io as _io
+            img = Image.open(_io.BytesIO(raw))
+            text = pytesseract.image_to_string(img, lang="chi_sim+eng").strip()
+            if not text:
+                return {"ok": False, "error": "图片 OCR 未提取到文本(图片可能模糊或无文字)"}
+            return text
+        except ImportError as e:
+            return {"ok": False, "error": f"OCR 依赖未安装: {e}"}
+        except Exception as e:
+            return {"ok": False, "error": f"图片 OCR 失败: {e}"}
+
+    # --- PDF: 先 pypdf,文本短则降级 OCR ---
+    if fl.endswith(".pdf"):
+        text = ""
+        try:
+            from pypdf import PdfReader
+            import io as _io
+            reader = PdfReader(_io.BytesIO(raw))
+            text = "\n".join(page.extract_text() or "" for page in reader.pages)
+        except ImportError:
+            return {"ok": False, "error": "pypdf not installed"}
+        except Exception as e:
+            return {"ok": False, "error": f"PDF 解析失败: {e}"}
+
+        if len(text.strip()) < _OCR_MIN_CHARS:
+            ocr_text, ocr_err = _ocr_pdf(raw)
+            if ocr_err:
+                return {"ok": False, "error": f"扫描件需 OCR,但 OCR 失败: {ocr_err}"}
+            if not ocr_text.strip():
+                return {"ok": False, "error": "OCR 未提取到文本(图片可能模糊或为纯图形)"}
+            return ocr_text
+        return text
+
+    # --- TXT ---
+    if fl.endswith(".txt"):
+        text = raw.decode("utf-8", errors="ignore")
+        if not text.strip():
+            return {"ok": False, "error": "文件为空"}
+        return text
+
+    return {"ok": False, "error": "不支持的文件格式(请上传 PDF / 图片 / TXT)"}
+
+
 def parse_excel(file_storage):
     """解析 Excel/CSV,返回 (rows, error) 元组。成功时 error=None,失败时 rows=None"""
     filename = file_storage.filename
@@ -1021,57 +1123,77 @@ def parse_excel(file_storage):
 
 @app.route("/api/upload", methods=["POST"])
 def upload():
-    """上传 Excel/CSV,自动归一化并入库"""
+    """上传发票 PDF/图片,OCR 提取 → AI 解析+归一化 → 入库"""
     f = request.files.get("file")
     if not f:
         return jsonify({"ok": False, "error": "file is required"})
-    source_type = request.form.get("source_type", "上传").strip()
-    valid_sources = {"报销", "对公支付", "工资", "上传"}
-    if source_type not in valid_sources:
-        return jsonify({"ok": False, "error": f"source_type 必须是: {sorted(valid_sources)}"})
-    rows, parse_err = parse_excel(f)
-    if rows is None:
-        return jsonify({"ok": False, "error": parse_err or "解析失败"})
-    if not rows:
-        return jsonify({"ok": False, "error": "未解析到数据(请检查表头是否含'金额'和'摘要')"})
-    if len(rows) > 200:
-        return jsonify({"ok": False, "error": f"单次最多 200 行,当前 {len(rows)} 行(请分批上传)"})
-    # 归一化 + 入库
-    results = []
-    failures = []
+    filename = f.filename or "upload.bin"
+
+    # 1. 提取文本
+    extracted = extract_text_from_upload(f, filename)
+    if isinstance(extracted, dict) and not extracted.get("ok", True):
+        return jsonify(extracted)
+    invoice_text = extracted
+    if len(invoice_text.strip()) < 5:
+        return jsonify({"ok": False, "error": "提取到的文本过短,无法解析"})
+
+    # 2. AI 解析 + 归一化(一步)
+    prompt = INVOICE_PARSE_PROMPT.format(rules=ACCOUNTING_RULES, invoice_text=invoice_text[:6000])
+    r = chat_json([
+        {"role": "system", "content": "你是财务发票解析助手。从 OCR 文本提取字段并归一化科目。只返回 JSON。"},
+        {"role": "user", "content": prompt},
+    ], temperature=0.1)
+
+    if not isinstance(r, dict) or r.get("_error") or "level1" not in r:
+        return jsonify({"ok": False, "error": r.get("_error", "LLM 返回异常") if isinstance(r, dict) else "LLM 返回非 dict",
+                         "stage": "parse", "ocr_text_preview": invoice_text[:500]})
+
+    # 3. 解析金额(容错)
+    try:
+        amount = float(str(r.get("amount", 0)).replace(",", "").replace("¥", "").replace("元", "").strip() or 0)
+    except (ValueError, TypeError):
+        amount = 0
+
+    level1 = r.get("level1", "未归类")
+    level2 = r.get("level2", "未归类")
+    confidence = max(0, min(1.0, float(r.get("confidence", 0))))
+    reason = r.get("reason", "")
+    vendor = r.get("vendor", "")
+    invoice_no = r.get("invoice_no", "")
+    invoice_date = r.get("invoice_date", "")
+    items = r.get("items", [])
+    summary = " / ".join(items) if items else (vendor or "发票")
+
+    # 4. 入库
     conn = sqlite3.connect(DB_PATH)
     try:
         c = conn.cursor()
-        for i, row in enumerate(rows):
-            row["source"] = source_type
-            prompt = NORMALIZE_PROMPT.format(
-                rules=ACCOUNTING_RULES,
-                amount=row["amount"],
-                summary=row["summary"],
-                source=row["source"],
-            )
-            r = chat_json([
-                {"role": "system", "content": "你是财务归类助手。只返回 JSON。"},
-                {"role": "user", "content": prompt},
-            ], temperature=0.1)
-            if not isinstance(r, dict) or r.get("_error") or "level1" not in r:
-                failures.append({"row": i + 1, "summary": row["summary"], "error": r.get("_error", "missing level1") if isinstance(r, dict) else "invalid response"})
-                # 失败行不入库,跳过
-                results.append({**row, "level1": "未归类", "level2": "未归类", "confidence": 0, "reason": r.get("_error", "LLM 返回异常") if isinstance(r, dict) else "LLM 返回非 dict", "failed": True})
-                continue
-            level1 = r.get("level1", "?")
-            level2 = r.get("level2", "?")
-            confidence = r.get("confidence", 0)
-            reason = r.get("reason", "")
-            c.execute(
-                "INSERT INTO transactions (source, amount, summary, level1, level2, confidence, reason) VALUES (?, ?, ?, ?, ?, ?, ?)",
-                (row["source"], row["amount"], row["summary"], level1, level2, confidence, reason),
-            )
-            results.append({**row, "level1": level1, "level2": level2, "confidence": confidence, "reason": reason})
+        c.execute(
+            "INSERT INTO transactions (source, amount, summary, level1, level2, confidence, reason, vendor, invoice_no, invoice_text) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            ("发票", amount, summary, level1, level2, confidence, reason, vendor, invoice_no, invoice_text[:5000]),
+        )
         conn.commit()
+        tx_id = c.lastrowid
     finally:
         conn.close()
-    return jsonify({"ok": True, "count": len(results), "success_count": len([r for r in results if not r.get("failed")]), "fail_count": len(failures), "results": results, "failures": failures})
+
+    return jsonify({
+        "ok": True,
+        "transaction_id": tx_id,
+        "result": {
+            "invoice_no": invoice_no,
+            "invoice_date": invoice_date,
+            "vendor": vendor,
+            "amount": amount,
+            "items": items,
+            "level1": level1,
+            "level2": level2,
+            "confidence": confidence,
+            "reason": reason,
+        },
+        "ocr_text_preview": invoice_text[:500],
+    })
+
 
 @app.route("/api/report/preview")
 def report_preview():
