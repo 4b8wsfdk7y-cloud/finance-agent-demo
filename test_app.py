@@ -43,6 +43,9 @@ class FinanceAppTestCase(unittest.TestCase):
         self.app = finance_app.app
         self.app.config["TESTING"] = True
         self.client = self.app.test_client()
+        # 登录为财务管理员(看全部)
+        with self.client.session_transaction() as sess:
+            sess["user_id"] = 1
 
     def tearDown(self):
         os.close(self.db_fd)
@@ -54,11 +57,66 @@ class FinanceAppTestCase(unittest.TestCase):
         c = conn.cursor()
         for i in range(count):
             c.execute(
-                "INSERT INTO transactions (source, amount, summary, level1, level2, confidence, reason) VALUES (?, ?, ?, ?, ?, ?, ?)",
-                ("报销", 1000 + i * 100, f"测试报销{i}", "研发费" if i % 2 == 0 else "管理费", f"二级{i}", 0.9, "测试"),
+                "INSERT INTO transactions (source, amount, summary, level1, level2, confidence, reason, user_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                ("报销", 1000 + i * 100, f"测试报销{i}", "研发费" if i % 2 == 0 else "管理费", f"二级{i}", 0.9, "测试", 1),
             )
         conn.commit()
         conn.close()
+
+
+class TestAuth(FinanceAppTestCase):
+    """权限分层测试"""
+
+    def test_protected_redirects_when_not_logged_in(self):
+        """未登录访问首页应 302 跳转登录"""
+        # 用全新 client(无 session)
+        c = self.app.test_client()
+        r = c.get("/")
+        self.assertEqual(r.status_code, 302)
+        self.assertIn("/login", r.headers.get("Location", ""))
+
+    def test_login_page(self):
+        r = self.client.get("/login")
+        self.assertEqual(r.status_code, 200)
+
+    def test_login_success(self):
+        """正确 PIN 登录成功"""
+        c = self.app.test_client()
+        r = c.post("/login", data={"name": "财务管理员", "pin": "1234"})
+        self.assertEqual(r.status_code, 302)
+        self.assertIn("/", r.headers.get("Location", ""))
+
+    def test_login_wrong_pin(self):
+        """错误 PIN 登录失败"""
+        c = self.app.test_client()
+        r = c.post("/login", data={"name": "财务管理员", "pin": "9999"})
+        self.assertEqual(r.status_code, 200)  # 返回登录页
+        self.assertIn("错误".encode(), r.data)
+
+    def test_logout(self):
+        """登出后应跳转登录"""
+        r = self.client.get("/logout")
+        self.assertEqual(r.status_code, 302)
+
+    def test_financial_sees_all(self):
+        """财务角色 scope=all 能看全部"""
+        self._insert_mock_data(3)
+        r = self.client.get("/api/report/preview?scope=all")
+        data = r.get_json()
+        self.assertTrue(data["ok"])
+        self.assertEqual(data["total_count"], 3)
+
+    def test_employee_forced_mine(self):
+        """普通员工 scope=all 被强制改成 mine"""
+        # 先以财务登录插入数据
+        self._insert_mock_data(3)
+        # 切到张三(employee)
+        with self.client.session_transaction() as sess:
+            sess["user_id"] = 2  # 张三
+        r = self.client.get("/api/report/preview?scope=all")
+        data = r.get_json()
+        self.assertTrue(data["ok"])
+        self.assertEqual(data["total_count"], 0)  # 张三没数据
 
 
 class TestHealth(FinanceAppTestCase):

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """财务 Agent — 管报底座 + 绩效试算 Demo (D4)"""
-from flask import Flask, request, jsonify, render_template_string
+from flask import Flask, request, jsonify, render_template_string, redirect
 import os
 import json
 import sqlite3
@@ -13,6 +13,8 @@ from monitor import init_monitor
 load_dotenv()
 
 app = Flask(__name__)
+app.secret_key = os.environ.get("FLASK_SECRET", "finance-agent-secret-dev")
+from flask import session as flask_session
 app.config["MAX_CONTENT_LENGTH"] = 16 * 1024 * 1024  # 16MB
 
 # === 配置 ===
@@ -38,6 +40,22 @@ def init_db():
         reason TEXT,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )""")
+    # === 权限分层:users 表 ===
+    c.execute("""CREATE TABLE IF NOT EXISTS users (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL,
+        role TEXT NOT NULL DEFAULT 'employee',
+        pin TEXT,
+        feishu_open_id TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )""")
+    # 预置账号(首次建表)
+    c.execute("SELECT COUNT(*) FROM users")
+    if c.fetchone()[0] == 0:
+        c.execute("INSERT INTO users (name, role, pin) VALUES (?, ?, ?)", ("财务管理员", "financial", "1234"))
+        c.execute("INSERT INTO users (name, role, pin) VALUES (?, ?, ?)", ("张三", "employee", "1111"))
+        c.execute("INSERT INTO users (name, role, pin) VALUES (?, ?, ?)", ("李四", "employee", "2222"))
+
     # === 发票流改造:给 transactions 表加字段(兼容旧库) ===
     try:
         c.execute("ALTER TABLE transactions ADD COLUMN vendor TEXT")
@@ -49,6 +67,10 @@ def init_db():
         pass
     try:
         c.execute("ALTER TABLE transactions ADD COLUMN invoice_text TEXT")
+    except Exception:
+        pass
+    try:
+        c.execute("ALTER TABLE transactions ADD COLUMN user_id INTEGER")
     except Exception:
         pass
 
@@ -84,6 +106,30 @@ init_db()
 # === 监控初始化 ===
 init_monitor(app, service_name="finance-agent", db_path=DB_PATH, llm_test_fn=test_connection,
              alert_feishu_fn=feishu_send_post, alert_chat_id=ALERT_CHAT_ID)
+
+def _current_user():
+    """从 session 取当前用户,未登录返回 None"""
+    uid = flask_session.get("user_id")
+    if not uid:
+        return None
+    conn = sqlite3.connect(DB_PATH)
+    try:
+        c = conn.cursor()
+        c.execute("SELECT id, name, role FROM users WHERE id=?", (uid,))
+        row = c.fetchone()
+    finally:
+        conn.close()
+    if not row:
+        return None
+    return {"id": row[0], "name": row[1], "role": row[2]}
+
+def _require_user():
+    """要求登录,返回 user 或 (None, error_response)"""
+    u = _current_user()
+    if not u:
+        return None, jsonify({"ok": False, "error": "未登录"}), 401
+    return u, None
+
 
 # === 口径规则 ===
 
@@ -493,6 +539,53 @@ loadPerformance().then(loadDepts);loadChats();
 """
 
 # === 页面 ===
+LOGIN_HTML = """<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>登录 · 财务 Agent</title>
+<style>
+:root{--c-primary:#6366f1;--c-primary-3:#a855f7;--c-bg:#0f0f1a;--c-surface:rgba(255,255,255,.04);--c-text:#e4e4e7;--c-text-dim:#a1a1aa;--c-text-muted:#71717a;--c-border:rgba(255,255,255,.08);--c-border-hover:rgba(139,92,246,.4)}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Helvetica Neue","Kaiti SC","STKaiti","楷体",sans-serif;background:var(--c-bg);color:var(--c-text);min-height:100vh;display:flex;align-items:center;justify-content:center}
+body::before{content:'';position:fixed;inset:0;z-index:-1;background:radial-gradient(ellipse 80% 50% at 20% 0%,rgba(99,102,241,.15),transparent),radial-gradient(ellipse 60% 50% at 80% 30%,rgba(168,85,247,.12),transparent),var(--c-bg)}
+.card{background:var(--c-surface);border:1px solid var(--c-border);border-radius:20px;padding:40px;width:360px;max-width:90vw}
+.logo{width:56px;height:56px;border-radius:16px;background:linear-gradient(135deg,var(--c-primary),var(--c-primary-3));display:flex;align-items:center;justify-content:center;font-size:28px;margin:0 auto 20px;box-shadow:0 8px 24px rgba(99,102,241,.4)}
+h1{font-family:-apple-system,BlinkMacSystemFont,"Helvetica Neue","Songti SC","STSong","宋体",sans-serif;font-size:22px;font-weight:700;text-align:center;margin-bottom:6px}
+.subtitle{text-align:center;color:var(--c-text-dim);font-size:13px;margin-bottom:28px}
+.field{margin-bottom:16px}
+label{display:block;font-size:12px;font-weight:600;color:var(--c-text-muted);margin-bottom:6px;letter-spacing:.3px}
+input{width:100%;padding:11px 14px;background:rgba(255,255,255,.05);border:1px solid var(--c-border);border-radius:10px;color:var(--c-text);font-size:14px;font-family:inherit;outline:none;transition:border .2s}
+input:focus{border-color:var(--c-border-hover)}
+.btn{width:100%;padding:12px;border:none;border-radius:10px;background:linear-gradient(135deg,var(--c-primary),var(--c-primary-3));color:#fff;font-size:15px;font-weight:600;cursor:pointer;font-family:inherit;transition:all .2s;margin-top:8px}
+.btn:hover{transform:translateY(-1px);box-shadow:0 6px 20px rgba(99,102,241,.4)}
+.hint{margin-top:20px;padding:12px;background:rgba(255,255,255,.03);border-radius:8px;font-size:12px;color:var(--c-text-muted);line-height:1.7}
+.hint b{color:var(--c-text-dim)}
+.error{color:#fca5a5;font-size:13px;text-align:center;margin-top:12px}
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="logo">💰</div>
+  <h1>财务 Agent 登录</h1>
+  <p class="subtitle">输入姓名和 PIN 码</p>
+  <form method="POST" action="/login">
+    <div class="field"><label>姓名</label><input name="name" required autofocus placeholder="财务管理员 / 张三 / 李四"></div>
+    <div class="field"><label>PIN 码</label><input name="pin" type="password" required placeholder="4位数字"></div>
+    <button class="btn" type="submit">登 录</button>
+    {% if error %}<p class="error">{{ error }}</p>{% endif %}
+  </form>
+  <div class="hint">
+    <b>测试账号:</b><br>
+    财务管理员 / 1234(看全部)<br>
+    张三 / 1111(只看自己)<br>
+    李四 / 2222(只看自己)
+  </div>
+</div>
+</body>
+</html>"""
+
 INDEX_HTML = """<!DOCTYPE html>
 <html lang="zh">
 <head>
@@ -889,12 +982,43 @@ btn.addEventListener('click',async()=>{
 </html>"""
 
 # === 路由 ===
+@app.route("/login", methods=["GET", "POST"])
+def login_page():
+    if request.method == "GET":
+        return LOGIN_HTML.replace("{% if error %}", "").replace("{% endif %}", "").replace("{{ error }}", "")
+    name = request.form.get("name", "").strip()
+    pin = request.form.get("pin", "").strip()
+    conn = sqlite3.connect(DB_PATH)
+    try:
+        c = conn.cursor()
+        c.execute("SELECT id, name, role FROM users WHERE name=? AND pin=?", (name, pin))
+        row = c.fetchone()
+    finally:
+        conn.close()
+    if not row:
+        return LOGIN_HTML.replace("{% if error %}", "").replace("{% endif %}", "").replace("{{ error }}", "姓名或 PIN 码错误")
+    flask_session["user_id"] = row[0]
+    return redirect("/")
+
+
+@app.route("/logout")
+def logout_page():
+    flask_session.clear()
+    return redirect("/login")
+
+
 @app.route("/")
 def index():
+    u = _current_user()
+    if not u:
+        return redirect("/login")
     return INDEX_HTML
 
 @app.route("/upload")
 def upload_page():
+    u = _current_user()
+    if not u:
+        return redirect("/login")
     return UPLOAD_HTML
 
 @app.route("/health")
@@ -1124,6 +1248,9 @@ def parse_excel(file_storage):
 @app.route("/api/upload", methods=["POST"])
 def upload():
     """上传发票 PDF/图片,OCR 提取 → AI 解析+归一化 → 入库"""
+    u = _current_user()
+    if not u:
+        return jsonify({"ok": False, "error": "未登录"}), 401
     f = request.files.get("file")
     if not f:
         return jsonify({"ok": False, "error": "file is required"})
@@ -1169,8 +1296,8 @@ def upload():
     try:
         c = conn.cursor()
         c.execute(
-            "INSERT INTO transactions (source, amount, summary, level1, level2, confidence, reason, vendor, invoice_no, invoice_text) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-            ("发票", amount, summary, level1, level2, confidence, reason, vendor, invoice_no, invoice_text[:5000]),
+            "INSERT INTO transactions (source, amount, summary, level1, level2, confidence, reason, vendor, invoice_no, invoice_text, user_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            ("发票", amount, summary, level1, level2, confidence, reason, vendor, invoice_no, invoice_text[:5000], flask_session.get("user_id")),
         )
         conn.commit()
         tx_id = c.lastrowid
@@ -1197,14 +1324,27 @@ def upload():
 
 @app.route("/api/report/preview")
 def report_preview():
-    """管报预览: 按一级科目汇总"""
+    """管报预览: 按一级科目汇总。财务可看全部,普通员工只看自己。"""
+    u = _current_user()
+    if not u:
+        return jsonify({"ok": False, "error": "未登录"}), 401
+    scope = request.args.get("scope", "mine")
+    # 普通员工强制 mine;财务可选 all
+    if u["role"] != "financial":
+        scope = "mine"
     conn = sqlite3.connect(DB_PATH)
     try:
         c = conn.cursor()
-        c.execute("SELECT level1, level2, COUNT(*) as cnt, SUM(amount) as total FROM transactions GROUP BY level1, level2 ORDER BY level1, level2")
-        rows = c.fetchall()
-        c.execute("SELECT COUNT(*) as total_count, SUM(amount) as total_amount FROM transactions")
-        overall = c.fetchone()
+        if scope == "all":
+            c.execute("SELECT level1, level2, COUNT(*) as cnt, SUM(amount) as total FROM transactions GROUP BY level1, level2 ORDER BY level1, level2")
+            rows = c.fetchall()
+            c.execute("SELECT COUNT(*) as total_count, SUM(amount) as total_amount FROM transactions")
+            overall = c.fetchone()
+        else:
+            c.execute("SELECT level1, level2, COUNT(*) as cnt, SUM(amount) as total FROM transactions WHERE user_id=? GROUP BY level1, level2 ORDER BY level1, level2", (u["id"],))
+            rows = c.fetchall()
+            c.execute("SELECT COUNT(*) as total_count, SUM(amount) as total_amount FROM transactions WHERE user_id=?", (u["id"],))
+            overall = c.fetchone()
     finally:
         conn.close()
     summary = {}
@@ -1273,6 +1413,9 @@ def _generate_commentary(rows, overall):
 @app.route("/report")
 def report_page():
     """管报预览页面"""
+    u = _current_user()
+    if not u:
+        return redirect("/login")
     return REPORT_HTML
 
 @app.route("/api/report/commentary", methods=["POST"])
