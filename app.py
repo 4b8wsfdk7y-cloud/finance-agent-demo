@@ -461,7 +461,7 @@ INDEX_HTML = """<!DOCTYPE html>
 *{margin:0;padding:0;box-sizing:border-box}
 html{scroll-behavior:smooth}
 body{
-  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;
+  font-family:"Kaiti SC","STKaiti","KaiTi","楷体",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
   background:var(--c-bg);color:var(--c-text);line-height:1.6;overflow-x:hidden;
   min-height:100vh;
 }
@@ -478,7 +478,7 @@ body::after{content:'';position:fixed;inset:0;z-index:-1;opacity:.4;
 /* 顶部导航 */
 .nav{position:sticky;top:0;z-index:100;backdrop-filter:blur(20px);background:rgba(15,15,26,.7);border-bottom:1px solid var(--c-border)}
 .nav-inner{max-width:1100px;margin:0 auto;padding:16px 24px;display:flex;align-items:center;justify-content:space-between}
-.nav-brand{display:flex;align-items:center;gap:10px;font-size:17px;font-weight:700;color:var(--c-text);text-decoration:none}
+.nav-brand{font-family:"Songti SC","STSong","SimSun","宋体",serif;display:flex;align-items:center;gap:10px;font-size:17px;font-weight:700;color:var(--c-text);text-decoration:none}
 .nav-brand-icon{width:36px;height:36px;border-radius:10px;background:linear-gradient(135deg,var(--c-primary),var(--c-primary-3));display:flex;align-items:center;justify-content:center;font-size:18px;box-shadow:0 4px 12px rgba(99,102,241,.4)}
 .nav-brand-text{background:linear-gradient(135deg,#fff,#a78bfa);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
 .nav-links{display:flex;gap:4px;align-items:center}
@@ -495,7 +495,7 @@ body::after{content:'';position:fixed;inset:0;z-index:-1;opacity:.4;
 .hero{position:relative;padding:60px 0 40px;text-align:center}
 .hero-tag{display:inline-flex;align-items:center;gap:8px;padding:6px 14px;border-radius:20px;background:var(--c-surface-2);border:1px solid var(--c-border);font-size:12.5px;font-weight:600;color:var(--c-primary-2);margin-bottom:24px;letter-spacing:.5px}
 .hero-tag::before{content:'';width:6px;height:6px;border-radius:50%;background:var(--c-primary-2);box-shadow:0 0 8px var(--c-primary-2)}
-.hero h1{font-size:clamp(38px,6vw,64px);font-weight:800;line-height:1.1;letter-spacing:-.02em;margin-bottom:20px}
+.hero h1{font-family:"Songti SC","STSong","SimSun","宋体",serif;font-size:clamp(38px,6vw,64px);font-weight:800;line-height:1.1;letter-spacing:-.02em;margin-bottom:20px}
 .hero h1 .grad{background:linear-gradient(135deg,#818cf8 0%,#c084fc 50%,#e879f9 100%);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
 .hero p{font-size:17px;color:var(--c-text-dim);max-width:600px;margin:0 auto 36px;line-height:1.7}
 .hero-cta{display:flex;gap:12px;justify-content:center;flex-wrap:wrap}
@@ -511,14 +511,14 @@ body::after{content:'';position:fixed;inset:0;z-index:-1;opacity:.4;
 .stat::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,rgba(139,92,246,.5),transparent)}
 .stat:hover{border-color:var(--c-border-hover);transform:translateY(-3px);box-shadow:var(--shadow-glow)}
 .stat-label{font-size:12px;color:var(--c-text-muted);font-weight:600;letter-spacing:.5px;text-transform:uppercase;margin-bottom:8px}
-.stat-value{font-size:30px;font-weight:800;letter-spacing:-.02em}
+.stat-value{font-family:-apple-system,BlinkMacSystemFont,"Helvetica Neue",sans-serif;font-size:30px;font-weight:800;letter-spacing:-.02em}
 .stat-value .unit{font-size:14px;font-weight:500;color:var(--c-text-dim);margin-left:4px}
 .stat-trend{font-size:12px;color:var(--c-green);margin-top:6px;font-weight:600}
 
 /* 分区标题 */
 .section{margin:56px 0 24px}
 .section-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:20px}
-.section-title{font-size:22px;font-weight:700;letter-spacing:-.01em;display:flex;align-items:center;gap:10px}
+.section-title{font-family:"Songti SC","STSong","SimSun","宋体",serif;font-size:22px;font-weight:700;letter-spacing:-.01em;display:flex;align-items:center;gap:10px}
 .section-title::before{content:'';width:4px;height:24px;border-radius:2px;background:linear-gradient(135deg,var(--c-primary),var(--c-primary-3))}
 .section-sub{font-size:13.5px;color:var(--c-text-muted)}
 
@@ -533,7 +533,7 @@ body::after{content:'';position:fixed;inset:0;z-index:-1;opacity:.4;
 .feat-icon.green{background:linear-gradient(135deg,rgba(16,185,129,.2),rgba(52,211,153,.2));box-shadow:0 0 20px rgba(16,185,129,.15)}
 .feat-icon.blue{background:linear-gradient(135deg,rgba(59,130,246,.2),rgba(96,165,250,.2));box-shadow:0 0 20px rgba(59,130,246,.15)}
 .feat-icon.amber{background:linear-gradient(135deg,rgba(245,158,11,.2),rgba(251,191,36,.2));box-shadow:0 0 20px rgba(245,158,11,.15)}
-.feat h3{font-size:16.5px;font-weight:700;margin-bottom:8px}
+.feat h3{font-family:"Songti SC","STSong","SimSun","宋体",serif;font-size:16.5px;font-weight:700;margin-bottom:8px}
 .feat p{font-size:13.5px;color:var(--c-text-dim);line-height:1.65;margin-bottom:14px}
 .feat-badge{display:inline-flex;align-items:center;gap:4px;padding:3px 10px;border-radius:12px;font-size:11.5px;font-weight:600}
 .badge-done{background:rgba(16,185,129,.12);color:var(--c-green);border:1px solid rgba(16,185,129,.2)}
@@ -541,7 +541,7 @@ body::after{content:'';position:fixed;inset:0;z-index:-1;opacity:.4;
 /* CTA 大卡片 */
 .cta-card{margin-top:48px;padding:48px;border-radius:24px;background:linear-gradient(135deg,rgba(99,102,241,.1),rgba(168,85,247,.1));border:1px solid var(--c-border);text-align:center;position:relative;overflow:hidden}
 .cta-card::before{content:'';position:absolute;inset:0;background:radial-gradient(circle at 50% 0%,rgba(139,92,246,.15),transparent 60%);pointer-events:none}
-.cta-card h2{font-size:26px;font-weight:700;margin-bottom:10px;position:relative}
+.cta-card h2{font-family:"Songti SC","STSong","SimSun","宋体",serif;font-size:26px;font-weight:700;margin-bottom:10px;position:relative}
 .cta-card p{color:var(--c-text-dim);margin-bottom:24px;position:relative}
 .cta-card .hero-cta{position:relative}
 
