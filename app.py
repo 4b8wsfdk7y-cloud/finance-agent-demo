@@ -22,7 +22,7 @@ CHERRYIN_API_KEY = os.environ.get("CHERRYIN_API_KEY", "")
 CHERRYIN_BASE_URL = os.environ.get("CHERRYIN_BASE_URL", "https://express-ent-admin.cherryin.ai/v1")
 LLM_MODEL = os.environ.get("LLM_MODEL", "agent/deepseek-v4-pro")
 
-DB_PATH = os.path.join(os.path.dirname(__file__), "finance.db")
+DB_PATH = os.path.join(os.environ.get("DATA_DIR", os.path.dirname(__file__)), "finance.db")
 ALERT_CHAT_ID = os.environ.get("FEISHU_ALERT_CHAT_ID", "")  # 留空=跳过飞书推送
 
 # === 数据库初始化 ===
@@ -1953,4 +1953,4 @@ def webhook():
 
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5002, debug=os.environ.get("FLASK_DEBUG") == "1")
+    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5002)), debug=os.environ.get("FLASK_DEBUG") == "1")
