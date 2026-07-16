@@ -1895,10 +1895,30 @@ def webhook():
     """飞书事件订阅回调
 
     支持飞书 v2 事件格式(header.event_type)和 v1 格式(event.type)。
+    支持 Encrypt Key 加密模式。
     收到消息后立即返回 200,异步处理指令(避免飞书 3 秒超时)。
     """
     data = request.get_json(silent=True) or {}
-    # challenge 验证
+
+    # 加密模式:飞书发 {"encrypt": "base64..."},需解密
+    if "encrypt" in data and not data.get("challenge"):
+        try:
+            import base64, hashlib
+            from Crypto.Cipher import AES
+            encrypt_key = os.environ.get("LARK_ENCRYPT_KEY", "")
+            if not encrypt_key:
+                return jsonify({"error": "encrypt key not configured"}), 500
+            key = hashlib.sha256(encrypt_key.encode("utf-8")).digest()
+            enc = base64.b64decode(data["encrypt"])
+            cipher = AES.new(key, AES.MODE_CBC, iv=enc[:16])
+            decrypted = cipher.decrypt(enc[16:])
+            pad = decrypted[-1]
+            decrypted = decrypted[:-pad].decode("utf-8")
+            data = json.loads(decrypted)
+        except Exception as e:
+            return jsonify({"error": f"decrypt failed: {e}"}), 500
+
+    # challenge 验证(必须在 1 秒内返回)
     if "challenge" in data:
         return jsonify({"challenge": data["challenge"]})
 
