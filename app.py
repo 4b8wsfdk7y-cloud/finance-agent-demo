@@ -637,12 +637,12 @@ body{
     <div class="login-sub">登录以使用发票试算与管报系统</div>
     <form method="post" action="/login">
       <div class="form-group">
-        <label>用户名</label>
-        <input type="text" name="username" required autofocus>
+        <label>姓名</label>
+        <input type="text" name="name" required autofocus>
       </div>
       <div class="form-group">
-        <label>密码</label>
-        <input type="password" name="password" required>
+        <label>PIN 码</label>
+        <input type="password" name="pin" required>
       </div>
       <button type="submit" class="btn btn-primary">登录</button>
       {% if error %}<div class="error-msg">{{ error }}</div>{% endif %}
