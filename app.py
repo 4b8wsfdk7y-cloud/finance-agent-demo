@@ -559,6 +559,162 @@ loadPerf();
 </body>
 </html>"""
 
+INDEX_HTML = """<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>财务 Agent · 发票试算与管报系统</title>
+<style>
+:root{
+  --background: oklch(0.145 0.004 270);
+  --foreground: oklch(0.985 0 0);
+  --card: oklch(0.178 0.004 270);
+  --card-foreground: oklch(0.985 0 0);
+  --muted: oklch(0.22 0.004 270);
+  --muted-foreground: oklch(0.708 0.004 270);
+  --border: oklch(1 0 0 / 8%);
+  --input: oklch(1 0 0 / 12%);
+  --ring: oklch(0.62 0.18 275);
+  --primary: oklch(0.62 0.18 275);
+  --primary-foreground: oklch(0.15 0.02 275);
+  --primary-hover: oklch(0.57 0.19 275);
+  --success: oklch(0.65 0.15 160);
+  --warning: oklch(0.75 0.15 75);
+  --danger: oklch(0.65 0.2 25);
+  --radius: 0.375rem;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{font-family:-apple-system,BlinkMacSystemFont,"Helvetica Neue","PingFang SC","Microsoft YaHei",sans-serif;background:var(--background);color:var(--foreground);line-height:1.6;font-size:14px;min-height:100vh;-webkit-font-smoothing:antialiased;font-feature-settings:"tnum"}
+::selection{background:oklch(0.62 0.18 275 / 20%);color:var(--foreground)}
+.nav{border-bottom:1px solid var(--border);background:var(--card)}
+.nav-inner{max-width:1040px;margin:0 auto;padding:0 24px;display:flex;align-items:center;justify-content:space-between;height:52px}
+.nav-brand{display:flex;align-items:center;gap:8px;font-size:13.5px;font-weight:600;color:var(--foreground);text-decoration:none;letter-spacing:-.01em}
+.nav-brand-mark{width:20px;height:20px;border-radius:5px;background:var(--muted);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;color:var(--muted-foreground);font-size:11px;font-weight:700}
+.nav-brand-sub{color:var(--muted-foreground);font-weight:400;font-size:11.5px;margin-left:2px}
+.nav-links{display:flex;gap:1px;align-items:center}
+.nav-links a{padding:6px 11px;border-radius:6px;font-size:12.5px;font-weight:500;color:var(--muted-foreground);text-decoration:none;transition:color .15s,background .15s}
+.nav-links a:hover{color:var(--foreground);background:var(--muted)}
+.nav-links a.active{color:var(--foreground);background:var(--muted)}
+.wrap{max-width:1040px;margin:0 auto;padding:32px 24px 64px}
+.hero{margin-bottom:48px;max-width:680px}
+.hero-eyebrow{font-size:11.5px;color:var(--muted-foreground);font-weight:500;letter-spacing:.04em;margin-bottom:16px;text-transform:uppercase}
+.hero h1{font-size:28px;font-weight:600;letter-spacing:-.02em;line-height:1.3;margin-bottom:14px;color:var(--foreground)}
+.hero h1 .accent{color:var(--primary)}
+.hero p{font-size:14px;color:var(--muted-foreground);line-height:1.7;margin-bottom:24px;max-width:560px}
+.hero-actions{display:flex;gap:8px;flex-wrap:wrap}
+.btn{display:inline-flex;align-items:center;gap:6px;padding:7px 15px;border-radius:6px;font-size:12.5px;font-weight:500;text-decoration:none;transition:background .15s,border-color .15s,color .15s;cursor:pointer;border:1px solid transparent;font-family:inherit;line-height:1.4}
+.btn-primary{background:var(--primary);color:var(--primary-foreground);font-weight:600}
+.btn-primary:hover{background:var(--primary-hover)}
+.btn-ghost{background:transparent;color:var(--muted-foreground);border:1px solid var(--border)}
+.btn-ghost:hover{color:var(--foreground);border-color:var(--input);background:var(--muted)}
+.metrics{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:var(--border);border:1px solid var(--border);border-radius:8px;overflow:hidden;margin-bottom:48px}
+.metric{background:var(--card);padding:16px 18px;display:flex;flex-direction:column;gap:4px}
+.metric-value{font-size:22px;font-weight:600;color:var(--foreground);letter-spacing:-.02em;font-feature-settings:"tnum"}
+.metric-value .unit{font-size:12px;color:var(--muted-foreground);font-weight:400;margin-left:2px}
+.metric-label{font-size:11px;color:var(--muted-foreground);letter-spacing:.02em}
+.metric-status{display:inline-flex;align-items:center;gap:6px;font-size:13px;color:var(--success);font-weight:500}
+.metric-status::before{content:'';width:6px;height:6px;border-radius:50%;background:var(--success)}
+.section{margin-bottom:48px}
+.section-head{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:16px;padding-bottom:10px;border-bottom:1px solid var(--border)}
+.section-title{font-size:13.5px;font-weight:600;color:var(--foreground);letter-spacing:-.01em}
+.section-sub{font-size:11.5px;color:var(--muted-foreground)}
+.feat-list{display:flex;flex-direction:column}
+.feat{display:grid;grid-template-columns:32px 1fr auto;gap:14px;padding:14px 0;border-bottom:1px solid var(--border);align-items:start;transition:background .15s}
+.feat:last-child{border-bottom:none}
+.feat:hover{background:var(--muted)}
+.feat-num{font-size:11px;color:var(--muted-foreground);font-weight:500;font-feature-settings:"tnum";padding-top:3px;letter-spacing:.05em}
+.feat-body h3{font-size:13.5px;font-weight:600;color:var(--foreground);margin-bottom:3px;letter-spacing:-.01em}
+.feat-body p{font-size:12.5px;color:var(--muted-foreground);line-height:1.6}
+.feat-status{font-size:10.5px;color:var(--success);font-weight:500;padding:2px 7px;border:1px solid oklch(0.65 0.15 160 / 25%);border-radius:4px;white-space:nowrap;background:oklch(0.65 0.15 160 / 8%)}
+.entries{display:grid;grid-template-columns:1.4fr 1fr 1fr;gap:10px;margin-bottom:48px}
+.entry{display:block;padding:18px;background:var(--card);border:1px solid var(--border);border-radius:8px;text-decoration:none;transition:border-color .15s,background .15s}
+.entry:hover{border-color:var(--input);background:var(--muted)}
+.entry-title{font-size:13.5px;font-weight:600;color:var(--foreground);margin-bottom:4px;display:flex;align-items:center;justify-content:space-between}
+.entry-arrow{color:var(--muted-foreground);font-size:14px;transition:color .15s}
+.entry:hover .entry-arrow{color:var(--primary)}
+.entry-desc{font-size:12px;color:var(--muted-foreground);line-height:1.5}
+.footer{padding-top:24px;border-top:1px solid var(--border);font-size:11px;color:var(--muted-foreground);display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px}
+@media(max-width:720px){.nav-links{display:none}.hero h1{font-size:22px}.metrics{grid-template-columns:1fr 1fr}.entries{grid-template-columns:1fr}.feat{grid-template-columns:24px 1fr}.feat-status{grid-column:2}}
+</style>
+</head>
+<body>
+<nav class="nav"><div class="nav-inner">
+    <a class="nav-brand" href="/"><span class="nav-brand-mark">F</span><span>财务 Agent<span class="nav-brand-sub">/ Finance</span></span></a>
+    <div class="nav-links">
+        <a href="/">首页</a>
+        <a href="/upload">上传发票</a>
+        <a href="/report">管报</a>
+        <a href="/performance">绩效</a>
+        <a href="/monitor">监控</a>
+        <a href="/logout">退出</a>
+    </div>
+</div></nav>
+
+<div class="wrap">
+  <section class="hero">
+    <div class="hero-eyebrow">Finance Agent · v1.0</div>
+    <h1>发票试算与<span class="accent">管理报表</span>智能生成</h1>
+    <p>上传发票 PDF/图片/TXT,AI 一步提取并归一化(科目 + 层级 + 置信度),自动生成管报与绩效试算,支持飞书 Bot 上传与企业级权限分层。</p>
+    <div class="hero-actions">
+      <a class="btn btn-primary" href="/upload">上传发票 →</a>
+      <a class="btn btn-ghost" href="/report">查看管报</a>
+      <a class="btn btn-ghost" href="/performance">绩效试算</a>
+    </div>
+  </section>
+
+  <div class="metrics">
+    <div class="metric"><div class="metric-value"><span id="s-tx">—</span><span class="unit">笔</span></div><div class="metric-label">累计发票</div></div>
+    <div class="metric"><div class="metric-value"><span id="s-today">—</span><span class="unit">笔</span></div><div class="metric-label">今日上传</div></div>
+    <div class="metric"><div class="metric-value"><span id="s-amount">—</span><span class="unit">元</span></div><div class="metric-label">累计金额</div></div>
+    <div class="metric"><div class="metric-value metric-status">在线</div><div class="metric-label" id="s-uptime">服务状态</div></div>
+  </div>
+
+  <div class="section">
+    <div class="section-head">
+      <div class="section-title">功能模块</div>
+      <div class="section-sub">8 天交付 · 49 个单元测试全绿</div>
+    </div>
+    <div class="feat-list">
+      <div class="feat"><div class="feat-num">01</div><div class="feat-body"><h3>发票 OCR + AI 解析</h3><p>pypdf 文本提取 + tesseract OCR 降级,AI 一步提取发票号/日期/供应商/金额/明细,并归一化到科目层级。</p></div><div class="feat-status">已上线</div></div>
+      <div class="feat"><div class="feat-num">02</div><div class="feat-body"><h3>管报生成</h3><p>按收支科目汇总,一级 + 二级层级展示,支持 scope=all(财务)/scope=mine(员工)权限分层。</p></div><div class="feat-status">已上线</div></div>
+      <div class="feat"><div class="feat-num">03</div><div class="feat-body"><h3>绩效试算</h3><p>按部门/项目维度汇总成本,支持自定义 KPI 与权重,输出绩效试算表。</p></div><div class="feat-status">已上线</div></div>
+      <div class="feat"><div class="feat-num">04</div><div class="feat-body"><h3>飞书 Bot 上传</h3><p>飞书对话直接发送图片/文件,自动解析入库,open_id 自动建档为 employee 角色。</p></div><div class="feat-status">已上线</div></div>
+      <div class="feat"><div class="feat-num">05</div><div class="feat-body"><h3>权限分层</h3><p>financial 角色看全部数据,employee 只看自己上传的,登录态用 Flask session + secret_key。</p></div><div class="feat-status">已上线</div></div>
+      <div class="feat"><div class="feat-num">06</div><div class="feat-body"><h3>监控告警</h3><p>异常自动告警,支持飞书群推送(配置 ALERT_CHAT_ID 后启用),Dashboard 实时展示服务状态。</p></div><div class="feat-status">已上线</div></div>
+    </div>
+  </div>
+
+  <div class="entries">
+    <a class="entry" href="/upload"><div class="entry-title">上传发票开始试算 <span class="entry-arrow">→</span></div><div class="entry-desc">PDF/图片/TXT,OCR + AI 归一化,约 10-30 秒出结果。</div></a>
+    <a class="entry" href="/report"><div class="entry-title">管理报表 <span class="entry-arrow">→</span></div><div class="entry-desc">收支汇总 + 层级展示。</div></a>
+    <a class="entry" href="/performance"><div class="entry-title">绩效试算 <span class="entry-arrow">→</span></div><div class="entry-desc">按部门/项目维度。</div></a>
+  </div>
+
+  <div class="footer">
+    <span>财务 Agent · 企业运营智能化 Demo</span>
+    <span>基于 2026-07-09 线下拜访会议需求 · 8 天敏捷交付</span>
+  </div>
+</div>
+
+<script>
+async function loadStats(){
+  try{
+    const r = await fetch('/api/stats').then(r=>r.json()).catch(()=>null);
+    if(r){
+      document.getElementById('s-tx').textContent = r.total_transactions ?? '—';
+      document.getElementById('s-today').textContent = r.today_transactions ?? '—';
+      document.getElementById('s-amount').textContent = r.total_amount ?? '—';
+      if(r.uptime_human) document.getElementById('s-uptime').textContent = '运行 ' + r.uptime_human;
+    }
+  }catch(e){}
+}
+loadStats();
+</script>
+</body>
+</html>"""
+
 LOGIN_HTML = """<!DOCTYPE html>
 <html lang="zh">
 <head>
