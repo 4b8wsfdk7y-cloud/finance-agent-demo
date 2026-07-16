@@ -261,83 +261,108 @@ REPORT_HTML = """<!DOCTYPE html>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>管报预览 · 财务 Agent</title>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
+:root{
+  --c-bg:#0a0b10;--c-surface:#11131c20;--c-surface-2:#161824;
+  --c-text:#d4d4d8;--c-text-dim:#8a8a8f;--c-text-muted:#5c5c63;
+  --c-border:#ffffff14;--c-border-strong:#ffffff26;
+  --c-accent:#6366f1;--c-accent-dim:#6366f130;
+  --c-green:#10b981;--c-amber:#f59e0b;--c-red:#ef4444;
+}
 *{margin:0;padding:0;box-sizing:border-box}
-body{font-family:'Inter',system-ui,sans-serif;background:#f0f2f5;color:#1a1a2e}
-.nav{background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);padding:20px 40px;display:flex;justify-content:space-between;align-items:center}
-.nav h1{color:#fff;font-size:20px}
-.nav a{color:#fff;text-decoration:none;margin-left:20px;opacity:.9}
-.nav a:hover{opacity:1}
-.container{max-width:1100px;margin:0 auto;padding:30px 20px}
-.card{background:#fff;border-radius:16px;padding:24px;margin-bottom:20px;box-shadow:0 2px 12px rgba(0,0,0,.06)}
-.card h2{font-size:18px;margin-bottom:16px;color:#333}
-.stat-row{display:flex;gap:16px;margin-bottom:8px}
-.stat-box{flex:1;background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);border-radius:12px;padding:20px;color:#fff}
-.stat-box .label{font-size:12px;opacity:.8}
-.stat-box .value{font-size:26px;font-weight:700;margin-top:4px}
-table{width:100%;border-collapse:collapse}
-th{text-align:left;padding:10px;background:#f7f8fc;color:#555;font-size:13px;border-bottom:2px solid #e8e8f0}
-td{padding:10px;border-bottom:1px solid #f0f0f5;font-size:14px}
-.l1-row{background:#f7f8fc;font-weight:600}
-.bar-container{width:80px;height:8px;background:#e8e8f0;border-radius:4px;overflow:hidden;display:inline-block;vertical-align:middle}
-.bar-fill{height:100%;background:linear-gradient(90deg,#667eea,#764ba2);border-radius:4px}
-.commentary{background:#fff8e6;border-left:4px solid #f0a020;padding:16px 20px;border-radius:8px;margin-top:8px}
-.commentary p{margin:6px 0;line-height:1.6}
-.commentary .tag{display:inline-block;background:#f0a020;color:#fff;font-size:11px;padding:2px 8px;border-radius:10px;margin-right:6px}
-.feishu-btn{background:linear-gradient(135deg,#3370ff,#5286ff);color:#fff;border:none;padding:10px 24px;border-radius:8px;font-size:14px;cursor:pointer;font-family:inherit}
-.feishu-btn:hover{opacity:.9;transform:translateY(-1px)}
-.feishu-btn:disabled{opacity:.5;cursor:not-allowed}
-.chat-select{padding:8px 12px;border:1px solid #ddd;border-radius:8px;font-size:14px;margin-right:8px;min-width:200px}
-.result-msg{margin-top:10px;padding:10px;border-radius:8px;font-size:13px;display:none}
-.result-msg.success{background:#e6f7e6;color:#2d8c2d;display:block}
-.result-msg.error{background:#fce8e8;color:#c92a2a;display:block}
-.loading{text-align:center;padding:40px;color:#888}
-.loading .spin{display:inline-block;width:32px;height:32px;border:3px solid #e8e8f0;border-top:3px solid #667eea;border-radius:50%;animation:spin 1s linear infinite}
+html{scroll-behavior:smooth}
+body{
+  font-family:-apple-system,BlinkMacSystemFont,"Helvetica Neue","PingFang SC","Microsoft YaHei",sans-serif;
+  background:var(--c-bg);color:var(--c-text);line-height:1.6;font-size:14px;min-height:100vh;
+  -webkit-font-smoothing:antialiased;
+}
+.nav{border-bottom:1px solid var(--c-border);background:var(--c-bg)}
+.nav-inner{max-width:1040px;margin:0 auto;padding:14px 24px;display:flex;align-items:center;justify-content:space-between}
+.nav-brand{display:flex;align-items:center;gap:9px;font-size:14px;font-weight:600;color:var(--c-text);text-decoration:none;letter-spacing:-.01em}
+.nav-brand-mark{width:22px;height:22px;border-radius:5px;background:var(--c-accent);display:flex;align-items:center;justify-content:center;color:#0a0b10;font-size:12px;font-weight:800}
+.nav-brand-sub{color:var(--c-text-muted);font-weight:400;font-size:12px;margin-left:1px}
+.nav-links{display:flex;gap:2px;align-items:center}
+.nav-links a{padding:6px 12px;border-radius:6px;font-size:13px;font-weight:500;color:var(--c-text-dim);text-decoration:none;transition:color .15s,background .15s}
+.nav-links a:hover{color:var(--c-text);background:var(--c-surface)}
+.nav-links a.active{color:var(--c-text);background:var(--c-surface)}
+.wrap{max-width:1040px;margin:0 auto;padding:32px 24px 64px}
+.page-head{margin-bottom:24px}
+.page-head h1{font-size:22px;font-weight:700;color:#f4f4f5;letter-spacing:-.02em;margin-bottom:4px}
+.page-head p{font-size:13px;color:var(--c-text-dim)}
+.card{background:transparent;border:1px solid var(--c-border);border-radius:8px;padding:24px;margin-bottom:16px}
+.card h2{font-size:14px;font-weight:600;color:#f4f4f5;margin-bottom:4px;letter-spacing:-.01em}
+.muted{color:var(--c-text-muted);font-size:12.5px}
+
+.stat-row{display:flex;gap:0;border:1px solid var(--c-border);border-radius:6px;overflow:hidden;margin-bottom:16px}
+.stat-box{flex:1;padding:14px 18px;border-right:1px solid var(--c-border)}
+.stat-box:last-child{border-right:none}
+.stat-box .label{font-size:11px;color:var(--c-text-muted);letter-spacing:.04em;text-transform:uppercase;font-weight:500}
+.stat-box .value{font-size:20px;font-weight:700;margin-top:4px;color:#f4f4f5;letter-spacing:-.02em;font-feature-settings:"tnum"}
+table{width:100%;border-collapse:collapse;font-size:12.5px;margin-top:8px}
+th{text-align:left;padding:9px 10px;color:var(--c-text-muted);font-weight:500;border-bottom:1px solid var(--c-border);font-size:11px;letter-spacing:.04em;text-transform:uppercase;background:var(--c-surface)}
+td{padding:9px 10px;border-bottom:1px solid var(--c-border);color:var(--c-text)}
+tr:hover td{background:var(--c-surface)}
+.l1-row{background:var(--c-surface);font-weight:600}
+.bar-container{width:80px;height:5px;background:var(--c-surface-2);border-radius:3px;overflow:hidden;display:inline-block;vertical-align:middle}
+.bar-fill{height:100%;background:var(--c-accent);border-radius:3px}
+.commentary{background:var(--c-surface-2);border-left:2px solid var(--c-accent);border-radius:0 4px 4px 0;padding:14px 18px;margin-top:8px}
+.commentary p{margin:5px 0;line-height:1.7;color:var(--c-text);font-size:12.5px}
+.feishu-btn{background:transparent;color:var(--c-text);border:1px solid var(--c-border-strong);padding:8px 18px;border-radius:5px;font-size:12.5px;font-weight:500;cursor:pointer;font-family:inherit;transition:all .15s}
+.feishu-btn:hover:not(:disabled){border-color:var(--c-accent);color:var(--c-accent)}
+.feishu-btn:disabled{opacity:.4;cursor:not-allowed}
+.chat-select{padding:7px 11px;border:1px solid var(--c-border-strong);border-radius:5px;font-size:12.5px;margin-right:6px;min-width:200px;background:var(--c-surface-2);color:var(--c-text);font-family:inherit;outline:none}
+.chat-select:focus{border-color:var(--c-accent)}
+.result-msg{margin-top:10px;padding:8px 12px;border-radius:5px;font-size:12px;display:none}
+.result-msg.success{background:var(--c-accent-dim);color:var(--c-green);border:1px solid var(--c-accent-dim);display:block}
+.result-msg.error{background:#ef44441a;color:var(--c-red);border:1px solid #ef444433;display:block}
+.loading{text-align:center;padding:32px;color:var(--c-text-muted);font-size:12.5px}
+.loading .spin{display:inline-block;width:18px;height:18px;border:2px solid var(--c-border-strong);border-top:2px solid var(--c-accent);border-radius:50%;animation:spin .8s linear infinite;margin-bottom:6px}
 @keyframes spin{to{transform:rotate(360deg)}}
 </style>
 </head>
 <body>
-<div class="nav">
-    <h1>💰 财务 Agent</h1>
-    <div>
+<div class="nav"><div class="nav-inner">
+    <a class="nav-brand" href="/"><span class="nav-brand-mark">F</span><span>财务 Agent<span class="nav-brand-sub"> / Finance</span></span></a>
+    <div class="nav-links">
         <a href="/">首页</a>
-        <a href="/upload">上传</a>
-        <a href="/report">管报</a>
-        <a href="/performance">绩效</a>
+        <a href="/upload">数据上传</a>
+        <a href="/report" class="active">管报预览</a>
+        <a href="/performance">绩效试算</a>
+        <a href="/monitor">监控</a>
     </div>
-</div>
-<div class="container">
+</div></div>
+<div class="wrap">
+    <div class="page-head">
+        <h1>管报预览</h1>
+        <p>科目汇总、流水明细与 AI 经营简评(当前 scope: <span id="scope-label">-</span>)</p>
+    </div>
     <div class="card">
-        <h2>📈 总览</h2>
         <div class="stat-row">
             <div class="stat-box"><div class="label">总笔数</div><div class="value" id="total-count">-</div></div>
             <div class="stat-box"><div class="label">总金额</div><div class="value" id="total-amount">-</div></div>
             <div class="stat-box"><div class="label">科目数</div><div class="value" id="cat-count">-</div></div>
         </div>
-    </div>
-    <div class="card">
-        <h2>📋 科目汇总</h2>
+        <h2 style="margin-top:20px;margin-bottom:8px">科目汇总</h2>
         <table>
             <thead><tr><th>一级科目</th><th>二级科目</th><th>笔数</th><th>金额</th><th>占比</th></tr></thead>
             <tbody id="report-tbody"></tbody>
         </table>
     </div>
     <div class="card">
-        <h2>ð 最新上传记录</h2>
-        <p style="color:#666;font-size:13px;margin-bottom:12px">最近 10 条流水(当前 scope: <span id="scope-label">-</span>)</p>
+        <h2>最新上传记录</h2>
+        <p class="muted" style="margin-bottom:8px">最近 10 条流水</p>
         <table>
             <thead><tr><th>时间</th><th>来源</th><th>销售方/摘要</th><th>发票号</th><th>金额</th><th>科目</th><th>置信度</th><th>归属</th></tr></thead>
             <tbody id="recent-tbody"></tbody>
         </table>
     </div>
     <div class="card">
-        <h2>🤖 AI 简评</h2>
-        <div id="commentary-area"><div class="loading"><div class="spin"></div><p style="margin-top:10px">AI 正在分析管报...</p></div></div>
+        <h2>AI 经营简评</h2>
+        <div id="commentary-area"><div class="loading"><div class="spin"></div><div>AI 正在分析管报...</div></div></div>
     </div>
     <div class="card">
-        <h2>📤 发送到飞书</h2>
-        <p style="color:#666;font-size:13px;margin-bottom:12px">选择群聊后,把管报 + AI 简评发到飞书群</p>
+        <h2>发送到飞书</h2>
+        <p class="muted" style="margin-bottom:10px">选择群聊后,把管报 + AI 简评发到飞书群</p>
         <select class="chat-select" id="chat-select"><option value="">加载群聊中...</option></select>
         <button class="feishu-btn" id="send-feishu" disabled>发送到飞书</button>
         <div class="result-msg" id="feishu-result"></div>
@@ -357,13 +382,13 @@ async function loadReport(){
     if(d.recent&&d.recent.length){
         rbody.innerHTML=d.recent.map(r=>{
             const dt=r.created_at?r.created_at.slice(5,10)+' '+r.created_at.slice(11,16):'-';
-            const conf=r.confidence>=0.8?'<span style="color:#10b981">高</span>':r.confidence>=0.5?'<span style="color:#f59e0b">中</span>':'<span style="color:#ef4444">低</span>';
+            const conf=r.confidence>=0.8?'<span style="color:var(--c-green)">高</span>':r.confidence>=0.5?'<span style="color:var(--c-amber)">中</span>':'<span style="color:var(--c-red)">低</span>';
             const vendor=r.vendor||r.summary||'-';
             const inv=r.invoice_no||'-';
             return '<tr><td>'+dt+'</td><td>'+r.source+'</td><td>'+escapeHtml(vendor)+'</td><td>'+escapeHtml(inv)+'</td><td>¥'+r.amount.toLocaleString()+'</td><td>'+escapeHtml(r.level1)+'/'+escapeHtml(r.level2||'')+'</td><td>'+conf+' '+(r.confidence*100).toFixed(0)+'%</td><td>'+escapeHtml(r.user_name)+'</td></tr>';
         }).join('');
     }else{
-        rbody.innerHTML='<tr><td colspan="8" style="text-align:center;color:#999;padding:20px">暂无记录</td></tr>';
+        rbody.innerHTML='<tr><td colspan="8" style="text-align:center;color:var(--c-text-muted);padding:16px">暂无记录</td></tr>';
     }
     const tbody=document.getElementById('report-tbody');
     const gt=d.total_amount;
@@ -371,7 +396,7 @@ async function loadReport(){
     for(const[l1,info]of Object.entries(d.summary)){
         html+='<tr class="l1-row"><td>'+escapeHtml(l1)+'</td><td>—</td><td>'+info.count+'</td><td>¥'+info.total.toLocaleString()+'</td><td>'+((info.total/gt)*100).toFixed(1)+'%</td></tr>';
         for(const item of info.items){
-            html+='<tr><td>└</td><td>'+escapeHtml(item.level2)+'</td><td>'+item.count+'</td><td>¥'+item.total.toLocaleString()+'</td><td><div class="bar-container"><div class="bar-fill" style="width:'+((item.total/info.total)*100)+'%"></div></div></td></tr>';
+            html+='<tr><td style="color:var(--c-text-muted)">└</td><td>'+escapeHtml(item.level2)+'</td><td>'+item.count+'</td><td>¥'+item.total.toLocaleString()+'</td><td><div class="bar-container"><div class="bar-fill" style="width:'+((item.total/info.total)*100)+'%"></div></div></td></tr>';
         }
     }
     tbody.innerHTML=html;
@@ -381,9 +406,9 @@ async function loadCommentary(){
     const d=await r.json();
     const area=document.getElementById('commentary-area');
     if(d.ok&&d.commentary){
-        area.innerHTML='<div class="commentary">'+d.commentary.split('\\n').map(p=>p.trim()?'<p><span class="tag">💡</span>'+escapeHtml(p)+'</p>':'').join('')+'</div>';
+        area.innerHTML='<div class="commentary">'+d.commentary.split('\\n').map(p=>p.trim()?'<p>'+escapeHtml(p)+'</p>':'').join('')+'</div>';
     }else{
-        area.innerHTML='<p style="color:#999">'+escapeHtml(d.error||'简评生成失败')+'</p>';
+        area.innerHTML='<p class="muted">'+escapeHtml(d.error||'简评生成失败')+'</p>';
     }
 }
 async function loadChats(){
@@ -398,8 +423,7 @@ async function loadChats(){
             sel.innerHTML='<option value="">无可用群聊 ('+escapeHtml(d.error||'未知错误')+')</option>';
         }
     }catch(e){
-        const sel=document.getElementById('chat-select');
-        sel.innerHTML='<option value="">加载失败 ('+escapeHtml(e.message)+')</option>';
+        document.getElementById('chat-select').innerHTML='<option value="">加载失败</option>';
     }
 }
 document.getElementById('send-feishu').addEventListener('click',async()=>{
@@ -412,16 +436,15 @@ document.getElementById('send-feishu').addEventListener('click',async()=>{
     try{
         const r=await fetch('/api/report/feishu',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({chat_id:chatId})});
         const d=await r.json();
-        if(d.ok){msg.className='result-msg success';msg.textContent='✅ 已发送到飞书群';}
-        else{msg.className='result-msg error';msg.textContent='❌ '+(d.error||'发送失败');}
-    }catch(e){msg.className='result-msg error';msg.textContent='❌ '+e.message;}
+        if(d.ok){msg.className='result-msg success';msg.textContent='✓ 已发送到飞书群';}
+        else{msg.className='result-msg error';msg.textContent='✗ '+(d.error||'发送失败');}
+    }catch(e){msg.className='result-msg error';msg.textContent='✗ '+e.message;}
     btn.disabled=false;btn.textContent='发送到飞书';
 });
 loadReport();loadCommentary();loadChats();
 </script>
 </body>
-</html>
-"""
+</html>"""
 
 PERFORMANCE_HTML = """<!DOCTYPE html>
 <html lang="zh">
@@ -429,85 +452,110 @@ PERFORMANCE_HTML = """<!DOCTYPE html>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>绩效试算 · 财务 Agent</title>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
+:root{
+  --c-bg:#0a0b10;--c-surface:#11131c20;--c-surface-2:#161824;
+  --c-text:#d4d4d8;--c-text-dim:#8a8a8f;--c-text-muted:#5c5c63;
+  --c-border:#ffffff14;--c-border-strong:#ffffff26;
+  --c-accent:#6366f1;--c-accent-dim:#6366f130;
+  --c-green:#10b981;--c-amber:#f59e0b;--c-red:#ef4444;
+}
 *{margin:0;padding:0;box-sizing:border-box}
-body{font-family:'Inter',system-ui,sans-serif;background:#f5f6fa;color:#333;line-height:1.6}
-.nav{background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);color:#fff;padding:16px 32px;display:flex;justify-content:space-between;align-items:center;box-shadow:0 2px 8px rgba(0,0,0,.1)}
-.nav h1{font-size:20px;font-weight:700}
-.nav a{color:#fff;text-decoration:none;margin-left:16px;font-size:14px;opacity:.85;transition:opacity .2s}
-.nav a:hover{opacity:1}
-.nav a.active{font-weight:600;opacity:1;border-bottom:2px solid #fff}
-.container{max-width:1000px;margin:0 auto;padding:24px 16px}
-.card{background:#fff;border-radius:12px;padding:24px;margin-bottom:16px;box-shadow:0 1px 3px rgba(0,0,0,.06)}
-.card h2{font-size:18px;font-weight:700;margin-bottom:16px;color:#1a1a2e}
-.stat-row{display:flex;gap:16px;flex-wrap:wrap}
-.stat-box{flex:1;min-width:140px;background:#f8f9ff;border-radius:8px;padding:16px;text-align:center}
-.stat-box .label{font-size:12px;color:#666;text-transform:uppercase;letter-spacing:.5px}
-.stat-box .value{font-size:24px;font-weight:700;margin-top:4px;color:#667eea}
-.stat-box .value.green{color:#2d8c2d}
-.stat-box .value.orange{color:#fa8c16}
-.filter-bar{display:flex;gap:12px;align-items:center;margin-bottom:16px;flex-wrap:wrap}
-.filter-bar select{padding:8px 12px;border:1px solid #ddd;border-radius:6px;font-size:14px;font-family:inherit}
-.btn{padding:8px 20px;border:none;border-radius:6px;font-size:14px;font-weight:500;cursor:pointer;font-family:inherit;transition:opacity .2s}
-.btn:hover{opacity:.85}
-.btn-primary{background:#667eea;color:#fff}
-.btn-feishu{background:#3370ff;color:#fff}
-.btn:disabled{opacity:.5;cursor:not-allowed}
-table{width:100%;border-collapse:collapse;font-size:13px}
-th{text-align:left;padding:10px 12px;color:#666;font-weight:500;border-bottom:2px solid #eee;background:#fafafa}
-td{padding:10px 12px;border-bottom:1px solid #f0f0f0}
-tr:hover{background:#f8f9ff}
-.badge{display:inline-block;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600}
-.badge-green{background:#e6f7e6;color:#2d8c2d}
-.badge-orange{background:#fff7e6;color:#fa8c16}
-.badge-red{background:#fce8e8;color:#c92a2a}
-.loading{text-align:center;padding:40px;color:#888}
-.loading .spin{display:inline-block;width:32px;height:32px;border:3px solid #e8e8f0;border-top:3px solid #667eea;border-radius:50%;animation:spin 1s linear infinite}
+html{scroll-behavior:smooth}
+body{
+  font-family:-apple-system,BlinkMacSystemFont,"Helvetica Neue","PingFang SC","Microsoft YaHei",sans-serif;
+  background:var(--c-bg);color:var(--c-text);line-height:1.6;font-size:14px;min-height:100vh;
+  -webkit-font-smoothing:antialiased;
+}
+.nav{border-bottom:1px solid var(--c-border);background:var(--c-bg)}
+.nav-inner{max-width:1040px;margin:0 auto;padding:14px 24px;display:flex;align-items:center;justify-content:space-between}
+.nav-brand{display:flex;align-items:center;gap:9px;font-size:14px;font-weight:600;color:var(--c-text);text-decoration:none;letter-spacing:-.01em}
+.nav-brand-mark{width:22px;height:22px;border-radius:5px;background:var(--c-accent);display:flex;align-items:center;justify-content:center;color:#0a0b10;font-size:12px;font-weight:800}
+.nav-brand-sub{color:var(--c-text-muted);font-weight:400;font-size:12px;margin-left:1px}
+.nav-links{display:flex;gap:2px;align-items:center}
+.nav-links a{padding:6px 12px;border-radius:6px;font-size:13px;font-weight:500;color:var(--c-text-dim);text-decoration:none;transition:color .15s,background .15s}
+.nav-links a:hover{color:var(--c-text);background:var(--c-surface)}
+.nav-links a.active{color:var(--c-text);background:var(--c-surface)}
+.wrap{max-width:1040px;margin:0 auto;padding:32px 24px 64px}
+.page-head{margin-bottom:24px}
+.page-head h1{font-size:22px;font-weight:700;color:#f4f4f5;letter-spacing:-.02em;margin-bottom:4px}
+.page-head p{font-size:13px;color:var(--c-text-dim)}
+.card{background:transparent;border:1px solid var(--c-border);border-radius:8px;padding:24px;margin-bottom:16px}
+.card h2{font-size:14px;font-weight:600;color:#f4f4f5;margin-bottom:4px;letter-spacing:-.01em}
+.muted{color:var(--c-text-muted);font-size:12.5px}
+
+.stat-row{display:flex;gap:0;border:1px solid var(--c-border);border-radius:6px;overflow:hidden;margin-bottom:16px}
+.stat-box{flex:1;padding:14px 18px;border-right:1px solid var(--c-border)}
+.stat-box:last-child{border-right:none}
+.stat-box .label{font-size:11px;color:var(--c-text-muted);letter-spacing:.04em;text-transform:uppercase;font-weight:500}
+.stat-box .value{font-size:20px;font-weight:700;margin-top:4px;color:#f4f4f5;letter-spacing:-.02em;font-feature-settings:"tnum"}
+.stat-box .value.green{color:var(--c-green)}
+.stat-box .value.amber{color:var(--c-amber)}
+.filter-bar{display:flex;gap:10px;align-items:center;margin-bottom:14px;flex-wrap:wrap}
+.filter-bar select{padding:7px 11px;border:1px solid var(--c-border-strong);border-radius:5px;font-size:12.5px;font-family:inherit;background:var(--c-surface-2);color:var(--c-text);outline:none}
+.filter-bar select:focus{border-color:var(--c-accent)}
+.btn{padding:8px 16px;border:1px solid transparent;border-radius:5px;font-size:12.5px;font-weight:500;cursor:pointer;font-family:inherit;transition:background .15s,border-color .15s;line-height:1.4}
+.btn-primary{background:var(--c-accent);color:#fff;font-weight:600}
+.btn-primary:hover{background:#5558e0}
+.btn-feishu{background:transparent;color:var(--c-text);border:1px solid var(--c-border-strong)}
+.btn-feishu:hover:not(:disabled){border-color:var(--c-accent);color:var(--c-accent)}
+.btn:disabled{opacity:.4;cursor:not-allowed}
+table{width:100%;border-collapse:collapse;font-size:12.5px;margin-top:8px}
+th{text-align:left;padding:9px 10px;color:var(--c-text-muted);font-weight:500;border-bottom:1px solid var(--c-border);font-size:11px;letter-spacing:.04em;text-transform:uppercase;background:var(--c-surface)}
+td{padding:9px 10px;border-bottom:1px solid var(--c-border);color:var(--c-text)}
+tr:hover td{background:var(--c-surface)}
+.badge{display:inline-block;padding:2px 8px;border-radius:3px;font-size:10.5px;font-weight:600;border:1px solid}
+.badge-green{background:var(--c-accent-dim);color:var(--c-green);border-color:var(--c-accent-dim)}
+.badge-orange{background:#f59e0b1a;color:var(--c-amber);border-color:#f59e0b33}
+.badge-red{background:#ef44441a;color:var(--c-red);border-color:#ef444433}
+.loading{text-align:center;padding:32px;color:var(--c-text-muted);font-size:12.5px}
+.loading .spin{display:inline-block;width:18px;height:18px;border:2px solid var(--c-border-strong);border-top:2px solid var(--c-accent);border-radius:50%;animation:spin .8s linear infinite;margin-bottom:6px}
 @keyframes spin{to{transform:rotate(360deg)}}
-.result-msg{margin-top:10px;padding:10px;border-radius:8px;font-size:13px;display:none}
-.result-msg.success{background:#e6f7e6;color:#2d8c2d;display:block}
-.result-msg.error{background:#fce8e8;color:#c92a2a;display:block}
-.feishu-section{margin-top:16px;padding-top:16px;border-top:1px solid #eee}
-.feishu-section select{padding:8px 12px;border:1px solid #ddd;border-radius:6px;font-size:14px;margin-right:8px;min-width:200px}
+.result-msg{margin-top:10px;padding:8px 12px;border-radius:5px;font-size:12px;display:none}
+.result-msg.success{background:var(--c-accent-dim);color:var(--c-green);border:1px solid var(--c-accent-dim);display:block}
+.result-msg.error{background:#ef44441a;color:var(--c-red);border:1px solid #ef444433;display:block}
+.chat-select{padding:7px 11px;border:1px solid var(--c-border-strong);border-radius:5px;font-size:12.5px;margin-right:6px;min-width:200px;background:var(--c-surface-2);color:var(--c-text);font-family:inherit;outline:none}
+.chat-select:focus{border-color:var(--c-accent)}
 </style>
 </head>
 <body>
-<div class="nav">
-    <h1>💰 财务 Agent</h1>
-    <div>
+<div class="nav"><div class="nav-inner">
+    <a class="nav-brand" href="/"><span class="nav-brand-mark">F</span><span>财务 Agent<span class="nav-brand-sub"> / Finance</span></span></a>
+    <div class="nav-links">
         <a href="/">首页</a>
-        <a href="/upload">上传</a>
-        <a href="/report">管报</a>
-        <a href="/performance">绩效</a>
-        <a href="/performance" class="active">绩效</a>
+        <a href="/upload">数据上传</a>
+        <a href="/report">管报预览</a>
+        <a href="/performance" class="active">绩效试算</a>
+        <a href="/monitor">监控</a>
     </div>
-</div>
-<div class="container">
+</div></div>
+<div class="wrap">
+    <div class="page-head">
+        <h1>绩效试算</h1>
+        <p>基于管报流水和绩效规则表,自动计算各部门/岗位的达成率与绩效奖金</p>
+    </div>
     <div class="card">
-        <h2>🎯 绩效试算</h2>
-        <p style="color:#666;font-size:13px;margin-bottom:16px">基于管报流水和绩效规则表,自动计算各部门/岗位的达成率与绩效奖金</p>
         <div class="filter-bar">
-            <label>部门筛选:</label>
+            <label style="font-size:12px;color:var(--c-text-dim)">部门筛选:</label>
             <select id="dept-filter" onchange="loadPerformance()">
                 <option value="">全部部门</option>
             </select>
-            <button class="btn btn-primary" onclick="loadPerformance()">🔄 刷新</button>
+            <button class="btn btn-primary" onclick="loadPerformance()">刷新</button>
         </div>
         <div class="stat-row">
             <div class="stat-box"><div class="label">总流水</div><div class="value" id="total-amount">-</div></div>
             <div class="stat-box"><div class="label">绩效奖金合计</div><div class="value green" id="total-bonus">-</div></div>
-            <div class="stat-box"><div class="label">规则数</div><div class="value orange" id="rules-count">-</div></div>
+            <div class="stat-box"><div class="label">规则数</div><div class="value amber" id="rules-count">-</div></div>
         </div>
     </div>
     <div class="card">
-        <h2>📋 绩效明细</h2>
-        <div id="perf-area"><div class="loading"><div class="spin"></div><p style="margin-top:10px">计算中...</p></div></div>
+        <h2>绩效明细</h2>
+        <div id="perf-area"><div class="loading"><div class="spin"></div><div>计算中...</div></div></div>
     </div>
     <div class="card">
-        <h2>📤 发送到飞书</h2>
-        <p style="color:#666;font-size:13px;margin-bottom:12px">把绩效报告推送到飞书群</p>
-        <select id="chat-select" style="padding:8px 12px;border:1px solid #ddd;border-radius:6px;font-size:14px;margin-right:8px;min-width:200px"><option value="">加载群聊中...</option></select>
+        <h2>发送到飞书</h2>
+        <p class="muted" style="margin-bottom:10px">把绩效报告推送到飞书群</p>
+        <select id="chat-select" class="chat-select"><option value="">加载群聊中...</option></select>
         <button class="btn btn-feishu" id="send-feishu" disabled>发送绩效报告</button>
         <div class="result-msg" id="feishu-result"></div>
     </div>
@@ -519,16 +567,16 @@ async function loadPerformance(){
     const url='/api/performance/calculate'+(dept?('?department='+encodeURIComponent(dept)):'');
     const r=await fetch(url);
     const d=await r.json();
-    if(!d.ok){document.getElementById('perf-area').innerHTML='<p style="color:#c92a2a">'+escapeHtml(d.error||'计算失败')+'</p>';return;}
+    if(!d.ok){document.getElementById('perf-area').innerHTML='<p style="color:var(--c-red);padding:12px">'+escapeHtml(d.error||'计算失败')+'</p>';return;}
     document.getElementById('total-amount').textContent='¥'+(d.total_amount||0).toLocaleString();
     document.getElementById('total-bonus').textContent='¥'+(d.total_bonus||0).toLocaleString();
     document.getElementById('rules-count').textContent=(d.rules_count||0)+' 条';
     const tbody=document.getElementById('perf-area');
-    if(!d.departments||d.departments.length===0){tbody.innerHTML='<p style="color:#888;text-align:center;padding:20px">暂无数据</p>';return;}
+    if(!d.departments||d.departments.length===0){tbody.innerHTML='<p class="muted" style="text-align:center;padding:16px">暂无数据</p>';return;}
     let html='<table><thead><tr><th>部门</th><th>岗位</th><th>目标</th><th>实际</th><th>达成率</th><th>系数</th><th>奖金基数</th><th>应发奖金</th><th>状态</th></tr></thead><tbody>';
     for(const item of d.departments){
-        const badgeClass=item.status==='超额'?'badge-green':(item.status==='未达标'?'badge-red':'badge-green');
-        html+='<tr><td>'+escapeHtml(item.department)+'</td><td>'+escapeHtml(item.position)+'</td><td>¥'+item.target_amount.toLocaleString()+'</td><td>¥'+item.actual_amount.toLocaleString()+'</td><td>'+item.achievement_rate+'%</td><td>'+item.coefficient+'</td><td>¥'+item.bonus_base.toLocaleString()+'</td><td><strong>¥'+item.bonus.toLocaleString()+'</strong></td><td><span class="badge '+badgeClass+'">'+escapeHtml(item.status)+'</span></td></tr>';
+        const badgeClass=item.status==='超额'?'badge-green':(item.status==='未达标'?'badge-red':'badge-orange');
+        html+='<tr><td>'+escapeHtml(item.department)+'</td><td>'+escapeHtml(item.position)+'</td><td>¥'+item.target_amount.toLocaleString()+'</td><td>¥'+item.actual_amount.toLocaleString()+'</td><td>'+item.achievement_rate+'%</td><td>'+item.coefficient+'</td><td>¥'+item.bonus_base.toLocaleString()+'</td><td><b>¥'+item.bonus.toLocaleString()+'</b></td><td><span class="badge '+badgeClass+'">'+escapeHtml(item.status)+'</span></td></tr>';
     }
     html+='</tbody></table>';
     tbody.innerHTML=html;
@@ -569,18 +617,16 @@ document.getElementById('send-feishu').addEventListener('click',async()=>{
     try{
         const r=await fetch('/api/performance/feishu',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({chat_id:chatId,department:document.getElementById('dept-filter').value})});
         const d=await r.json();
-        if(d.ok){result.className='result-msg success';result.textContent='✅ 发送成功!奖金合计 ¥'+(d.total_bonus||0).toLocaleString();}
-        else{result.className='result-msg error';result.textContent='❌ '+escapeHtml(d.error||'发送失败');}
-    }catch(e){result.className='result-msg error';result.textContent='❌ 网络错误';}
+        if(d.ok){result.className='result-msg success';result.textContent='✓ 发送成功!奖金合计 ¥'+(d.total_bonus||0).toLocaleString();}
+        else{result.className='result-msg error';result.textContent='✗ '+escapeHtml(d.error||'发送失败');}
+    }catch(e){result.className='result-msg error';result.textContent='✗ 网络错误';}
     btn.disabled=false;btn.textContent='发送绩效报告';
 });
 loadPerformance().then(loadDepts);loadChats();
 </script>
 </body>
-</html>
-"""
+</html>"""
 
-# === 页面 ===
 LOGIN_HTML = """<!DOCTYPE html>
 <html lang="zh">
 <head>
@@ -588,38 +634,50 @@ LOGIN_HTML = """<!DOCTYPE html>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>登录 · 财务 Agent</title>
 <style>
-:root{--c-primary:#6366f1;--c-primary-3:#a855f7;--c-bg:#0f0f1a;--c-surface:rgba(255,255,255,.04);--c-text:#e4e4e7;--c-text-dim:#a1a1aa;--c-text-muted:#71717a;--c-border:rgba(255,255,255,.08);--c-border-hover:rgba(139,92,246,.4)}
+:root{
+  --c-bg:#0a0b10;--c-surface:#11131c20;--c-surface-2:#161824;
+  --c-text:#d4d4d8;--c-text-dim:#8a8a8f;--c-text-muted:#5c5c63;
+  --c-border:#ffffff14;--c-border-strong:#ffffff26;
+  --c-accent:#6366f1;--c-accent-dim:#6366f130;
+  --c-red:#ef4444;
+}
 *{margin:0;padding:0;box-sizing:border-box}
-body{font-family:-apple-system,BlinkMacSystemFont,"Helvetica Neue","Kaiti SC","STKaiti","楷体",sans-serif;background:var(--c-bg);color:var(--c-text);min-height:100vh;display:flex;align-items:center;justify-content:center}
-body::before{content:'';position:fixed;inset:0;z-index:-1;background:radial-gradient(ellipse 80% 50% at 20% 0%,rgba(99,102,241,.15),transparent),radial-gradient(ellipse 60% 50% at 80% 30%,rgba(168,85,247,.12),transparent),var(--c-bg)}
-.card{background:var(--c-surface);border:1px solid var(--c-border);border-radius:20px;padding:40px;width:360px;max-width:90vw}
-.logo{width:56px;height:56px;border-radius:16px;background:linear-gradient(135deg,var(--c-primary),var(--c-primary-3));display:flex;align-items:center;justify-content:center;font-size:28px;margin:0 auto 20px;box-shadow:0 8px 24px rgba(99,102,241,.4)}
-h1{font-family:-apple-system,BlinkMacSystemFont,"Helvetica Neue","Songti SC","STSong","宋体",sans-serif;font-size:22px;font-weight:700;text-align:center;margin-bottom:6px}
-.subtitle{text-align:center;color:var(--c-text-dim);font-size:13px;margin-bottom:28px}
-.field{margin-bottom:16px}
-label{display:block;font-size:12px;font-weight:600;color:var(--c-text-muted);margin-bottom:6px;letter-spacing:.3px}
-input{width:100%;padding:11px 14px;background:rgba(255,255,255,.05);border:1px solid var(--c-border);border-radius:10px;color:var(--c-text);font-size:14px;font-family:inherit;outline:none;transition:border .2s}
-input:focus{border-color:var(--c-border-hover)}
-.btn{width:100%;padding:12px;border:none;border-radius:10px;background:linear-gradient(135deg,var(--c-primary),var(--c-primary-3));color:#fff;font-size:15px;font-weight:600;cursor:pointer;font-family:inherit;transition:all .2s;margin-top:8px}
-.btn:hover{transform:translateY(-1px);box-shadow:0 6px 20px rgba(99,102,241,.4)}
-.hint{margin-top:20px;padding:12px;background:rgba(255,255,255,.03);border-radius:8px;font-size:12px;color:var(--c-text-muted);line-height:1.7}
-.hint b{color:var(--c-text-dim)}
-.error{color:#fca5a5;font-size:13px;text-align:center;margin-top:12px}
+body{font-family:-apple-system,BlinkMacSystemFont,"Helvetica Neue","PingFang SC","Microsoft YaHei",sans-serif;background:var(--c-bg);color:var(--c-text);min-height:100vh;display:flex;align-items:center;justify-content:center;-webkit-font-smoothing:antialiased}
+.card{background:var(--c-surface-2);border:1px solid var(--c-border);border-radius:8px;padding:32px;width:320px;max-width:90vw}
+.brand{display:flex;align-items:center;gap:8px;margin-bottom:24px;justify-content:center}
+.brand-mark{width:24px;height:24px;border-radius:5px;background:var(--c-accent);display:flex;align-items:center;justify-content:center;color:#0a0b10;font-size:12px;font-weight:800}
+.brand-text{font-size:14px;font-weight:600;color:var(--c-text);letter-spacing:-.01em}
+.brand-sub{color:var(--c-text-muted);font-weight:400;font-size:12px;margin-left:1px}
+h1{font-size:16px;font-weight:600;color:#f4f4f5;letter-spacing:-.01em;margin-bottom:4px;text-align:center}
+.subtitle{text-align:center;color:var(--c-text-muted);font-size:12px;margin-bottom:24px}
+.field{margin-bottom:14px}
+label{display:block;font-size:11.5px;font-weight:500;color:var(--c-text-dim);margin-bottom:5px;letter-spacing:.02em}
+input{width:100%;padding:8px 12px;background:var(--c-bg);border:1px solid var(--c-border-strong);border-radius:5px;color:var(--c-text);font-size:13px;font-family:inherit;outline:none;transition:border-color .15s}
+input:focus{border-color:var(--c-accent)}
+input::placeholder{color:var(--c-text-muted)}
+.btn{width:100%;padding:9px;border:none;border-radius:5px;background:var(--c-accent);color:#fff;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;transition:background .15s;margin-top:6px}
+.btn:hover{background:#5558e0}
+.hint{margin-top:18px;padding:11px 13px;background:var(--c-surface);border:1px solid var(--c-border);border-radius:5px;font-size:11.5px;color:var(--c-text-muted);line-height:1.7}
+.hint b{color:var(--c-text-dim);font-weight:600}
+.error{color:#fca5a5;font-size:12px;text-align:center;margin-top:10px}
 </style>
 </head>
 <body>
 <div class="card">
-  <div class="logo">💰</div>
-  <h1>财务 Agent 登录</h1>
+  <div class="brand">
+    <span class="brand-mark">F</span>
+    <span class="brand-text">财务 Agent<span class="brand-sub"> / Finance</span></span>
+  </div>
+  <h1>登录</h1>
   <p class="subtitle">输入姓名和 PIN 码</p>
   <form method="POST" action="/login">
     <div class="field"><label>姓名</label><input name="name" required autofocus placeholder="财务管理员 / 张三 / 李四"></div>
     <div class="field"><label>PIN 码</label><input name="pin" type="password" required placeholder="4位数字"></div>
-    <button class="btn" type="submit">登 录</button>
+    <button class="btn" type="submit">登录</button>
     {% if error %}<p class="error">{{ error }}</p>{% endif %}
   </form>
   <div class="hint">
-    <b>测试账号:</b><br>
+    <b>测试账号</b><br>
     财务管理员 / 1234(看全部)<br>
     张三 / 1111(只看自己)<br>
     李四 / 2222(只看自己)
@@ -633,119 +691,79 @@ INDEX_HTML = """<!DOCTYPE html>
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>财务 Agent · 企业运营智能化</title>
+<title>财务 Agent · 财务归一化与绩效试算</title>
 <style>
 :root{
-  --c-primary:#6366f1;--c-primary-2:#8b5cf6;--c-primary-3:#a855f7;
-  --c-bg:#0f0f1a;--c-bg-2:#1a1a2e;--c-surface:rgba(255,255,255,.04);--c-surface-2:rgba(255,255,255,.08);
-  --c-text:#e4e4e7;--c-text-dim:#a1a1aa;--c-text-muted:#71717a;
-  --c-border:rgba(255,255,255,.08);--c-border-hover:rgba(139,92,246,.4);
-  --c-green:#10b981;--c-amber:#f59e0b;--c-red:#ef4444;--c-blue:#3b82f6;
-  --radius:16px;--radius-sm:10px;
-  --shadow:0 8px 32px rgba(0,0,0,.3);--shadow-glow:0 0 40px rgba(139,92,246,.15);
+  --c-bg:#0a0b10;--c-surface:#11131c20;--c-surface-2:#161824;
+  --c-text:#d4d4d8;--c-text-dim:#8a8a8f;--c-text-muted:#5c5c63;
+  --c-border:#ffffff14;--c-border-strong:#ffffff26;
+  --c-accent:#6366f1;--c-accent-dim:#6366f130;
+  --c-green:#10b981;--c-amber:#f59e0b;--c-red:#ef4444;
 }
 *{margin:0;padding:0;box-sizing:border-box}
 html{scroll-behavior:smooth}
 body{
-  font-family:-apple-system,BlinkMacSystemFont,"Helvetica Neue","Segoe UI","Kaiti SC","STKaiti","KaiTi","楷体",sans-serif;
-  background:var(--c-bg);color:var(--c-text);line-height:1.6;overflow-x:hidden;
-  min-height:100vh;
+  font-family:-apple-system,BlinkMacSystemFont,"Helvetica Neue","PingFang SC","Microsoft YaHei",sans-serif;
+  background:var(--c-bg);color:var(--c-text);line-height:1.6;font-size:14px;min-height:100vh;
+  -webkit-font-smoothing:antialiased;
 }
-/* 装饰性背景 */
-body::before{content:'';position:fixed;inset:0;z-index:-2;background:
-  radial-gradient(ellipse 80% 50% at 20% 0%,rgba(99,102,241,.15),transparent),
-  radial-gradient(ellipse 60% 50% at 80% 30%,rgba(168,85,247,.12),transparent),
-  radial-gradient(ellipse 50% 50% at 50% 100%,rgba(139,92,246,.1),transparent),
-  var(--c-bg)}
-body::after{content:'';position:fixed;inset:0;z-index:-1;opacity:.4;
-  background-image:linear-gradient(rgba(255,255,255,.015) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.015) 1px,transparent 1px);
-  background-size:60px 60px;mask-image:radial-gradient(ellipse 80% 60% at 50% 30%,#000,transparent)}
-
-/* 顶部导航 */
-.nav{position:sticky;top:0;z-index:100;backdrop-filter:blur(20px);background:rgba(15,15,26,.7);border-bottom:1px solid var(--c-border)}
-.nav-inner{max-width:1100px;margin:0 auto;padding:16px 24px;display:flex;align-items:center;justify-content:space-between}
-.nav-brand{font-family:-apple-system,BlinkMacSystemFont,"Helvetica Neue","Songti SC","STSong","SimSun","宋体",sans-serif;display:flex;align-items:center;gap:10px;font-size:17px;font-weight:700;color:var(--c-text);text-decoration:none}
-.nav-brand-icon{width:36px;height:36px;border-radius:10px;background:linear-gradient(135deg,var(--c-primary),var(--c-primary-3));display:flex;align-items:center;justify-content:center;font-size:18px;box-shadow:0 4px 12px rgba(99,102,241,.4)}
-.nav-brand-text{background:linear-gradient(135deg,#fff,#a78bfa);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
-.nav-links{display:flex;gap:4px;align-items:center}
-.nav-links a{padding:8px 14px;border-radius:8px;font-size:13.5px;font-weight:500;color:var(--c-text-dim);text-decoration:none;transition:all .2s}
+.nav{border-bottom:1px solid var(--c-border);background:var(--c-bg)}
+.nav-inner{max-width:1040px;margin:0 auto;padding:14px 24px;display:flex;align-items:center;justify-content:space-between}
+.nav-brand{display:flex;align-items:center;gap:9px;font-size:14px;font-weight:600;color:var(--c-text);text-decoration:none;letter-spacing:-.01em}
+.nav-brand-mark{width:22px;height:22px;border-radius:5px;background:var(--c-accent);display:flex;align-items:center;justify-content:center;color:#0a0b10;font-size:12px;font-weight:800}
+.nav-brand-sub{color:var(--c-text-muted);font-weight:400;font-size:12px;margin-left:1px}
+.nav-links{display:flex;gap:2px;align-items:center}
+.nav-links a{padding:6px 12px;border-radius:6px;font-size:13px;font-weight:500;color:var(--c-text-dim);text-decoration:none;transition:color .15s,background .15s}
 .nav-links a:hover{color:var(--c-text);background:var(--c-surface)}
-.nav-status{display:flex;align-items:center;gap:6px;padding:6px 12px;border-radius:20px;background:rgba(16,185,129,.1);border:1px solid rgba(16,185,129,.2);font-size:12px;color:var(--c-green);font-weight:600}
-.nav-status .dot{width:6px;height:6px;border-radius:50%;background:var(--c-green);box-shadow:0 0 8px var(--c-green);animation:pulse 2s infinite}
-@keyframes pulse{0%,100%{opacity:1}50%{opacity:.5}}
-
-/* 主容器 */
-.wrap{max-width:1100px;margin:0 auto;padding:40px 24px 80px}
-
-/* Hero */
-.hero{position:relative;padding:60px 0 40px;text-align:center}
-.hero-tag{display:inline-flex;align-items:center;gap:8px;padding:6px 14px;border-radius:20px;background:var(--c-surface-2);border:1px solid var(--c-border);font-size:12.5px;font-weight:600;color:var(--c-primary-2);margin-bottom:24px;letter-spacing:.5px}
-.hero-tag::before{content:'';width:6px;height:6px;border-radius:50%;background:var(--c-primary-2);box-shadow:0 0 8px var(--c-primary-2)}
-.hero h1{font-family:-apple-system,BlinkMacSystemFont,"Helvetica Neue","Songti SC","STSong","SimSun","宋体",sans-serif;font-size:clamp(38px,6vw,64px);font-weight:800;line-height:1.1;letter-spacing:-.02em;margin-bottom:20px}
-.hero h1 .grad{background:linear-gradient(135deg,#818cf8 0%,#c084fc 50%,#e879f9 100%);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
-.hero p{font-size:17px;color:var(--c-text-dim);max-width:600px;margin:0 auto 36px;line-height:1.7}
-.hero-cta{display:flex;gap:12px;justify-content:center;flex-wrap:wrap}
-.btn{display:inline-flex;align-items:center;gap:8px;padding:13px 28px;border-radius:12px;font-size:14.5px;font-weight:600;text-decoration:none;transition:all .25s;cursor:pointer;border:none;font-family:inherit}
-.btn-primary{background:linear-gradient(135deg,var(--c-primary),var(--c-primary-3));color:#fff;box-shadow:0 4px 20px rgba(99,102,241,.4)}
-.btn-primary:hover{transform:translateY(-2px);box-shadow:0 8px 30px rgba(99,102,241,.5)}
-.btn-ghost{background:var(--c-surface);color:var(--c-text);border:1px solid var(--c-border)}
-.btn-ghost:hover{background:var(--c-surface-2);border-color:var(--c-border-hover)}
-
-/* 统计卡片 */
-.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:16px;margin:48px 0}
-.stat{position:relative;padding:24px;border-radius:var(--radius);background:var(--c-surface);border:1px solid var(--c-border);overflow:hidden;transition:all .3s}
-.stat::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,rgba(139,92,246,.5),transparent)}
-.stat:hover{border-color:var(--c-border-hover);transform:translateY(-3px);box-shadow:var(--shadow-glow)}
-.stat-label{font-size:12px;color:var(--c-text-muted);font-weight:600;letter-spacing:.5px;text-transform:uppercase;margin-bottom:8px}
-.stat-value{font-family:-apple-system,BlinkMacSystemFont,"Helvetica Neue",sans-serif;font-size:30px;font-weight:800;letter-spacing:-.02em}
-.stat-value .unit{font-size:14px;font-weight:500;color:var(--c-text-dim);margin-left:4px}
-.stat-trend{font-size:12px;color:var(--c-green);margin-top:6px;font-weight:600}
-
-/* 分区标题 */
-.section{margin:56px 0 24px}
-.section-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:20px}
-.section-title{font-family:-apple-system,BlinkMacSystemFont,"Helvetica Neue","Songti SC","STSong","SimSun","宋体",sans-serif;font-size:22px;font-weight:700;letter-spacing:-.01em;display:flex;align-items:center;gap:10px}
-.section-title::before{content:'';width:4px;height:24px;border-radius:2px;background:linear-gradient(135deg,var(--c-primary),var(--c-primary-3))}
-.section-sub{font-size:13.5px;color:var(--c-text-muted)}
-
-/* 功能卡片 */
-.features{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:16px}
-.feat{position:relative;padding:28px;border-radius:var(--radius);background:var(--c-surface);border:1px solid var(--c-border);transition:all .3s;cursor:default;overflow:hidden}
-.feat::after{content:'';position:absolute;top:-50%;right:-50%;width:200%;height:200%;background:radial-gradient(circle,rgba(139,92,246,.06),transparent 50%);opacity:0;transition:opacity .3s;pointer-events:none}
-.feat:hover{border-color:var(--c-border-hover);transform:translateY(-4px)}
-.feat:hover::after{opacity:1}
-.feat-icon{width:48px;height:48px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:22px;margin-bottom:16px;background:var(--c-surface-2)}
-.feat-icon.purple{background:linear-gradient(135deg,rgba(99,102,241,.2),rgba(168,85,247,.2));box-shadow:0 0 20px rgba(99,102,241,.15)}
-.feat-icon.green{background:linear-gradient(135deg,rgba(16,185,129,.2),rgba(52,211,153,.2));box-shadow:0 0 20px rgba(16,185,129,.15)}
-.feat-icon.blue{background:linear-gradient(135deg,rgba(59,130,246,.2),rgba(96,165,250,.2));box-shadow:0 0 20px rgba(59,130,246,.15)}
-.feat-icon.amber{background:linear-gradient(135deg,rgba(245,158,11,.2),rgba(251,191,36,.2));box-shadow:0 0 20px rgba(245,158,11,.15)}
-.feat h3{font-family:-apple-system,BlinkMacSystemFont,"Helvetica Neue","Songti SC","STSong","SimSun","宋体",sans-serif;font-size:16.5px;font-weight:700;margin-bottom:8px}
-.feat p{font-size:13.5px;color:var(--c-text-dim);line-height:1.65;margin-bottom:14px}
-.feat-badge{display:inline-flex;align-items:center;gap:4px;padding:3px 10px;border-radius:12px;font-size:11.5px;font-weight:600}
-.badge-done{background:rgba(16,185,129,.12);color:var(--c-green);border:1px solid rgba(16,185,129,.2)}
-
-/* CTA 大卡片 */
-.cta-card{margin-top:48px;padding:48px;border-radius:24px;background:linear-gradient(135deg,rgba(99,102,241,.1),rgba(168,85,247,.1));border:1px solid var(--c-border);text-align:center;position:relative;overflow:hidden}
-.cta-card::before{content:'';position:absolute;inset:0;background:radial-gradient(circle at 50% 0%,rgba(139,92,246,.15),transparent 60%);pointer-events:none}
-.cta-card h2{font-family:-apple-system,BlinkMacSystemFont,"Helvetica Neue","Songti SC","STSong","SimSun","宋体",sans-serif;font-size:26px;font-weight:700;margin-bottom:10px;position:relative}
-.cta-card p{color:var(--c-text-dim);margin-bottom:24px;position:relative}
-.cta-card .hero-cta{position:relative}
-
-/* 技术栈 */
-.tech{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin-top:48px;padding-top:32px;border-top:1px solid var(--c-border)}
-.tech-item{padding:6px 14px;border-radius:8px;background:var(--c-surface);border:1px solid var(--c-border);font-size:12px;color:var(--c-text-dim);font-weight:500;transition:all .2s}
-.tech-item:hover{color:var(--c-text);border-color:var(--c-border-hover)}
-
-/* 底部 */
-.footer{text-align:center;padding:32px 0 0;color:var(--c-text-muted);font-size:12.5px}
-.footer a{color:var(--c-text-dim);text-decoration:none}
-
-/* 响应式 */
-@media(max-width:640px){
+.wrap{max-width:1040px;margin:0 auto;padding:48px 24px 64px}
+.hero{margin-bottom:56px;max-width:680px}
+.hero-eyebrow{font-size:12px;color:var(--c-accent);font-weight:600;letter-spacing:.04em;margin-bottom:14px;text-transform:uppercase;font-feature-settings:"tnum"}
+.hero h1{font-size:30px;font-weight:700;letter-spacing:-.02em;line-height:1.25;margin-bottom:14px;color:#f4f4f5}
+.hero h1 .accent{color:var(--c-accent)}
+.hero p{font-size:14.5px;color:var(--c-text-dim);line-height:1.7;margin-bottom:24px;max-width:560px}
+.hero-actions{display:flex;gap:8px;flex-wrap:wrap}
+.btn{display:inline-flex;align-items:center;gap:6px;padding:8px 16px;border-radius:6px;font-size:13px;font-weight:500;text-decoration:none;transition:background .15s,border-color .15s;cursor:pointer;border:1px solid transparent;font-family:inherit;line-height:1.4}
+.btn-primary{background:var(--c-accent);color:#fff;font-weight:600}
+.btn-primary:hover{background:#5558e0}
+.btn-ghost{background:transparent;color:var(--c-text-dim);border:1px solid var(--c-border-strong)}
+.btn-ghost:hover{color:var(--c-text);border-color:#ffffff40;background:var(--c-surface)}
+.metrics{display:flex;gap:0;padding:18px 0;border-top:1px solid var(--c-border);border-bottom:1px solid var(--c-border);margin-bottom:56px}
+.metric{flex:1;padding:0 20px;border-right:1px solid var(--c-border);display:flex;flex-direction:column;gap:3px}
+.metric:first-child{padding-left:0}
+.metric:last-child{border-right:none;padding-right:0}
+.metric-value{font-size:22px;font-weight:700;color:#f4f4f5;letter-spacing:-.02em;font-feature-settings:"tnum"}
+.metric-value .unit{font-size:12px;color:var(--c-text-muted);font-weight:400;margin-left:2px}
+.metric-label{font-size:11.5px;color:var(--c-text-muted);letter-spacing:.02em}
+.metric-status{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--c-green)}
+.metric-status::before{content:'';width:6px;height:6px;border-radius:50%;background:var(--c-green)}
+.section{margin-bottom:48px}
+.section-head{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:20px;padding-bottom:10px;border-bottom:1px solid var(--c-border)}
+.section-title{font-size:15px;font-weight:600;color:#f4f4f5;letter-spacing:-.01em}
+.section-sub{font-size:12px;color:var(--c-text-muted)}
+.feat-list{display:flex;flex-direction:column}
+.feat{display:grid;grid-template-columns:40px 1fr auto;gap:16px;padding:18px 0;border-bottom:1px solid var(--c-border);align-items:start;transition:background .15s}
+.feat:last-child{border-bottom:none}
+.feat:hover{background:var(--c-surface);padding-left:8px;padding-right:8px}
+.feat-num{font-size:11px;color:var(--c-text-muted);font-weight:600;font-feature-settings:"tnum";padding-top:2px;letter-spacing:.05em}
+.feat-body h3{font-size:14px;font-weight:600;color:#f4f4f5;margin-bottom:4px;letter-spacing:-.01em}
+.feat-body p{font-size:13px;color:var(--c-text-dim);line-height:1.6}
+.feat-status{font-size:11px;color:var(--c-green);font-weight:500;padding:2px 8px;border:1px solid var(--c-accent-dim);border-radius:4px;white-space:nowrap}
+.entries{display:grid;grid-template-columns:1.4fr 1fr 1fr;gap:12px;margin-bottom:48px}
+.entry{display:block;padding:20px;border:1px solid var(--c-border);border-radius:8px;text-decoration:none;transition:border-color .15s,background .15s}
+.entry:hover{border-color:var(--c-border-strong);background:var(--c-surface)}
+.entry-title{font-size:14px;font-weight:600;color:#f4f4f5;margin-bottom:4px;display:flex;align-items:center;justify-content:space-between}
+.entry-arrow{color:var(--c-text-muted);font-size:14px}
+.entry:hover .entry-arrow{color:var(--c-accent)}
+.entry-desc{font-size:12.5px;color:var(--c-text-dim);line-height:1.5}
+.footer{padding-top:24px;border-top:1px solid var(--c-border);font-size:11.5px;color:var(--c-text-muted);display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px}
+@media(max-width:720px){
   .nav-links{display:none}
-  .hero{padding:40px 0 24px}
-  .stats{grid-template-columns:repeat(2,1fr)}
-  .features{grid-template-columns:1fr}
+  .hero h1{font-size:24px}
+  .metrics{flex-wrap:wrap;gap:12px}
+  .metric{flex:1 1 40%;border-right:none;padding:8px 0}
+  .entries{grid-template-columns:1fr}
+  .feat{grid-template-columns:30px 1fr}
+  .feat-status{grid-column:2}
 }
 </style>
 </head>
@@ -753,8 +771,8 @@ body::after{content:'';position:fixed;inset:0;z-index:-1;opacity:.4;
 <nav class="nav">
   <div class="nav-inner">
     <a class="nav-brand" href="/">
-      <span class="nav-brand-icon">💰</span>
-      <span class="nav-brand-text">Finance Agent</span>
+      <span class="nav-brand-mark">F</span>
+      <span>财务 Agent<span class="nav-brand-sub"> / Finance</span></span>
     </a>
     <div class="nav-links">
       <a href="/upload">数据上传</a>
@@ -762,116 +780,115 @@ body::after{content:'';position:fixed;inset:0;z-index:-1;opacity:.4;
       <a href="/performance">绩效试算</a>
       <a href="/monitor">监控</a>
     </div>
-    <div class="nav-status"><span class="dot"></span> 运行中</div>
   </div>
 </nav>
 
 <div class="wrap">
-  <!-- Hero -->
   <section class="hero">
-    <div class="hero-tag">D7 · 企业运营智能化 Demo</div>
-    <h1>智能<span class="grad">财务归一化</span><br>与绩效试算底座</h1>
-    <p>上传报销 / 对公支付 / 工资 Excel,AI 自动归一化科目,生成管报 + AI 简评 + 飞书文档,支持绩效规则回放与奖金试算。</p>
-    <div class="hero-cta">
-      <a class="btn btn-primary" href="/upload">📤 上传数据</a>
-      <a class="btn btn-ghost" href="/report">📈 查看管报</a>
-      <a class="btn btn-ghost" href="/performance">🎯 绩效试算</a>
+    <div class="hero-eyebrow">Finance Normalization System · v1.0</div>
+    <h1>智能财务归一化<br>与<span class="accent">绩效试算底座</span></h1>
+    <p>上传报销 / 对公支付 / 工资 Excel,AI 自动归一化科目,生成管报与经营简评,支持绩效规则回放与奖金试算,一键推送飞书。</p>
+    <div class="hero-actions">
+      <a class="btn btn-primary" href="/upload">上传数据 →</a>
+      <a class="btn btn-ghost" href="/report">查看管报</a>
+      <a class="btn btn-ghost" href="/performance">绩效试算</a>
     </div>
   </section>
 
-  <!-- 实时统计 -->
-  <div class="stats" id="stats">
-    <div class="stat">
-      <div class="stat-label">流水总量</div>
-      <div class="stat-value"><span id="s-count">—</span><span class="unit">条</span></div>
-      <div class="stat-trend" id="s-trend">加载中...</div>
+  <div class="metrics">
+    <div class="metric">
+      <div class="metric-value"><span id="s-count">—</span><span class="unit">条</span></div>
+      <div class="metric-label" id="s-trend">流水总量</div>
     </div>
-    <div class="stat">
-      <div class="stat-label">流水总额</div>
-      <div class="stat-value">¥<span id="s-amount">—</span></div>
-      <div class="stat-trend" style="color:var(--c-text-muted)">归一化后</div>
+    <div class="metric">
+      <div class="metric-value">¥<span id="s-amount">—</span></div>
+      <div class="metric-label">流水总额(归一化后)</div>
     </div>
-    <div class="stat">
-      <div class="stat-label">AI 模型</div>
-      <div class="stat-value" style="font-size:18px">deepseek-v4-pro</div>
-      <div class="stat-trend" style="color:var(--c-text-muted)">CherryIN 网关</div>
+    <div class="metric">
+      <div class="metric-value" style="font-size:14px">deepseek-v4-pro</div>
+      <div class="metric-label">AI 模型 / CherryIN 网关</div>
     </div>
-    <div class="stat">
-      <div class="stat-label">服务状态</div>
-      <div class="stat-value" style="font-size:18px;color:var(--c-green)">● Online</div>
-      <div class="stat-trend" style="color:var(--c-text-muted)" id="s-uptime">端口 5002</div>
+    <div class="metric">
+      <div class="metric-value metric-status">在线</div>
+      <div class="metric-label" id="s-uptime">服务状态</div>
     </div>
   </div>
 
-  <!-- 功能模块 -->
   <div class="section">
     <div class="section-head">
       <div class="section-title">功能模块</div>
       <div class="section-sub">7 天交付 · 38 个单元测试全绿</div>
     </div>
-    <div class="features">
+    <div class="feat-list">
       <div class="feat">
-        <div class="feat-icon purple">📊</div>
-        <h3>管报底座</h3>
-        <p>上传 Excel → AI 字段归一化 → 自动汇总生成管报,支持一级 / 二级科目分类与金额统计。</p>
-        <span class="feat-badge badge-done">✅ 已上线</span>
+        <div class="feat-num">01</div>
+        <div class="feat-body">
+          <h3>管报底座</h3>
+          <p>上传 Excel → AI 字段归一化 → 自动汇总生成管报,支持一级 / 二级科目分类与金额统计。</p>
+        </div>
+        <div class="feat-status">已上线</div>
       </div>
       <div class="feat">
-        <div class="feat-icon blue">🤖</div>
-        <h3>AI 简评</h3>
-        <p>基于管报数据生成 AI 经营简评,识别异常波动与重点科目,辅助财务决策。</p>
-        <span class="feat-badge badge-done">✅ 已上线</span>
+        <div class="feat-num">02</div>
+        <div class="feat-body">
+          <h3>AI 简评</h3>
+          <p>基于管报数据生成 AI 经营简评,识别异常波动与重点科目,辅助财务决策。</p>
+        </div>
+        <div class="feat-status">已上线</div>
       </div>
       <div class="feat">
-        <div class="feat-icon green">🎯</div>
-        <h3>绩效试算</h3>
-        <p>按部门 / 岗位设置目标与奖金基数,基于流水自动计算达成率与奖金,支持飞书 Bot 调参。</p>
-        <span class="feat-badge badge-done">✅ 已上线</span>
+        <div class="feat-num">03</div>
+        <div class="feat-body">
+          <h3>绩效试算</h3>
+          <p>按部门 / 岗位设置目标与奖金基数,基于流水自动计算达成率与奖金,支持飞书 Bot 调参。</p>
+        </div>
+        <div class="feat-status">已上线</div>
       </div>
       <div class="feat">
-        <div class="feat-icon amber">📤</div>
-        <h3>飞书输出</h3>
-        <p>管报 / 简评 / 绩效试算结果一键推送到飞书群,支持 Bot 交互式查询(帮助 / 管报 / 绩效)。</p>
-        <span class="feat-badge badge-done">✅ 已上线</span>
+        <div class="feat-num">04</div>
+        <div class="feat-body">
+          <h3>飞书输出</h3>
+          <p>管报 / 简评 / 绩效试算结果一键推送飞书群,支持 Bot 交互式查询(帮助 / 管报 / 绩效)。</p>
+        </div>
+        <div class="feat-status">已上线</div>
       </div>
       <div class="feat">
-        <div class="feat-icon purple">📡</div>
-        <h3>监控告警</h3>
-        <p>5xx 错误自动告警,请求量 / 错误率 / 端点耗时实时监控,飞书推送(待配置项目群)。</p>
-        <span class="feat-badge badge-done">✅ 已上线</span>
+        <div class="feat-num">05</div>
+        <div class="feat-body">
+          <h3>监控告警</h3>
+          <p>5xx 错误自动告警,请求量 / 错误率 / 端点耗时实时监控,飞书推送(待配置项目群)。</p>
+        </div>
+        <div class="feat-status">已上线</div>
       </div>
       <div class="feat">
-        <div class="feat-icon blue">🔄</div>
-        <h3>批量归一化</h3>
-        <p>支持批量流水 AI 归一化,自动分类研发费 / 销售费 / 管理费 / 营业成本四级科目。</p>
-        <span class="feat-badge badge-done">✅ 已上线</span>
+        <div class="feat-num">06</div>
+        <div class="feat-body">
+          <h3>批量归一化</h3>
+          <p>支持批量流水 AI 归一化,自动分类研发费 / 销售费 / 管理费 / 营业成本四级科目。</p>
+        </div>
+        <div class="feat-status">已上线</div>
       </div>
     </div>
   </div>
 
-  <!-- CTA -->
-  <div class="cta-card">
-    <h2>开始体验</h2>
-    <p>上传你的第一份财务数据,体验 AI 归一化与管报生成全流程</p>
-    <div class="hero-cta">
-      <a class="btn btn-primary" href="/upload">📤 立即上传</a>
-      <a class="btn btn-ghost" href="/report">📈 管报预览 API</a>
-    </div>
-  </div>
-
-  <!-- 技术栈 -->
-  <div class="tech">
-    <span class="tech-item">Python Flask</span>
-    <span class="tech-item">CherryIN API</span>
-    <span class="tech-item">DeepSeek V4 Pro</span>
-    <span class="tech-item">SQLite</span>
-    <span class="tech-item">飞书 OpenAPI</span>
-    <span class="tech-item">unittest</span>
+  <div class="entries">
+    <a class="entry" href="/upload">
+      <div class="entry-title">上传数据开始归一化 <span class="entry-arrow">→</span></div>
+      <div class="entry-desc">Excel / CSV / PDF 发票,AI 自动归一化 + 科目分类。</div>
+    </a>
+    <a class="entry" href="/report">
+      <div class="entry-title">查看管报 <span class="entry-arrow">→</span></div>
+      <div class="entry-desc">科目汇总 + AI 简评。</div>
+    </a>
+    <a class="entry" href="/performance">
+      <div class="entry-title">绩效试算 <span class="entry-arrow">→</span></div>
+      <div class="entry-desc">达成率 + 奖金计算。</div>
+    </a>
   </div>
 
   <div class="footer">
-    企业运营智能化 Demo · 财务 Agent v1.0 · 服务器 124.222.181.129:5002<br>
-    基于 2026-07-09 线下拜访会议需求 · 7 天敏捷交付
+    <span>财务 Agent · 企业运营智能化 Demo</span>
+    <span>基于 2026-07-09 线下拜访会议需求 · 7 天敏捷交付</span>
   </div>
 </div>
 
@@ -885,12 +902,12 @@ async function loadStats(){
     if(reportResp && reportResp.ok){
       document.getElementById('s-count').textContent = reportResp.total_count || 0;
       document.getElementById('s-amount').textContent = (reportResp.total_amount||0).toLocaleString('zh-CN',{maximumFractionDigits:0});
-      document.getElementById('s-trend').textContent = reportResp.total_count > 0 ? '已入库' : '暂无数据';
+      document.getElementById('s-trend').textContent = reportResp.total_count > 0 ? '流水总量 · 已入库' : '流水总量 · 暂无数据';
     }
     if(statsResp && statsResp.uptime_human){
       document.getElementById('s-uptime').textContent = '运行 ' + statsResp.uptime_human;
     }
-  }catch(e){console.log('stats load failed',e)}
+  }catch(e){}
 }
 loadStats();
 </script>
@@ -904,80 +921,99 @@ UPLOAD_HTML = """<!DOCTYPE html>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>发票上传 · 财务 Agent</title>
 <style>
-:root{--c-primary:#6366f1;--c-primary-3:#a855f7;--c-bg:#0f0f1a;--c-surface:rgba(255,255,255,.04);--c-surface-2:rgba(255,255,255,.08);--c-text:#e4e4e7;--c-text-dim:#a1a1aa;--c-text-muted:#71717a;--c-border:rgba(255,255,255,.08);--c-border-hover:rgba(139,92,246,.4);--c-green:#10b981;--c-amber:#f59e0b;--c-red:#ef4444;--radius:16px}
+:root{
+  --c-bg:#0a0b10;--c-surface:#11131c20;--c-surface-2:#161824;
+  --c-text:#d4d4d8;--c-text-dim:#8a8a8f;--c-text-muted:#5c5c63;
+  --c-border:#ffffff14;--c-border-strong:#ffffff26;
+  --c-accent:#6366f1;--c-accent-dim:#6366f130;
+  --c-green:#10b981;--c-amber:#f59e0b;--c-red:#ef4444;
+}
 *{margin:0;padding:0;box-sizing:border-box}
-body{font-family:-apple-system,BlinkMacSystemFont,"Helvetica Neue","Kaiti SC","STKaiti","楷体",sans-serif;background:var(--c-bg);color:var(--c-text);line-height:1.6;min-height:100vh}
-body::before{content:'';position:fixed;inset:0;z-index:-1;background:radial-gradient(ellipse 80% 50% at 20% 0%,rgba(99,102,241,.15),transparent),radial-gradient(ellipse 60% 50% at 80% 30%,rgba(168,85,247,.12),transparent),var(--c-bg)}
-.nav{position:sticky;top:0;z-index:100;backdrop-filter:blur(20px);background:rgba(15,15,26,.7);border-bottom:1px solid var(--c-border)}
-.nav-inner{max-width:900px;margin:0 auto;padding:14px 24px;display:flex;align-items:center;justify-content:space-between}
-.nav-brand{font-family:-apple-system,BlinkMacSystemFont,"Helvetica Neue","Songti SC","STSong","宋体",sans-serif;display:flex;align-items:center;gap:10px;font-size:16px;font-weight:700;color:var(--c-text);text-decoration:none}
-.nav-brand-icon{width:32px;height:32px;border-radius:10px;background:linear-gradient(135deg,var(--c-primary),var(--c-primary-3));display:flex;align-items:center;justify-content:center;font-size:16px}
-.nav a{color:var(--c-text-dim);text-decoration:none;font-size:13.5px;margin-left:16px}
-.nav a:hover{color:var(--c-text)}
-.wrap{max-width:900px;margin:0 auto;padding:32px 24px}
-h1{font-family:-apple-system,BlinkMacSystemFont,"Helvetica Neue","Songti SC","STSong","宋体",sans-serif;font-size:28px;font-weight:800;margin-bottom:8px}
-.subtitle{color:var(--c-text-dim);margin-bottom:32px}
-.card{background:var(--c-surface);border:1px solid var(--c-border);border-radius:var(--radius);padding:28px;margin-bottom:20px}
-.drop{border:2px dashed var(--c-border);border-radius:12px;padding:48px 24px;text-align:center;cursor:pointer;transition:all .3s;background:rgba(255,255,255,.02)}
-.drop:hover{border-color:var(--c-border-hover);background:rgba(139,92,246,.05)}
-.drop.dragover{border-color:var(--c-primary);background:rgba(99,102,241,.08)}
-.drop.has-file{border-color:var(--c-green);background:rgba(16,185,129,.06)}
-.drop-icon{font-size:48px;margin-bottom:12px}
-.drop-text{font-size:16px;font-weight:600;margin-bottom:4px}
-.drop-hint{font-size:13px;color:var(--c-text-muted)}
-.btn{display:inline-flex;align-items:center;gap:8px;padding:13px 36px;border-radius:12px;font-size:15px;font-weight:600;border:none;cursor:pointer;font-family:inherit;transition:all .25s}
-.btn-primary{background:linear-gradient(135deg,var(--c-primary),var(--c-primary-3));color:#fff;box-shadow:0 4px 20px rgba(99,102,241,.4)}
-.btn-primary:hover:not(:disabled){transform:translateY(-2px);box-shadow:0 6px 28px rgba(99,102,241,.5)}
-.btn:disabled{background:var(--c-surface-2);color:var(--c-text-muted);cursor:not-allowed;box-shadow:none}
-.loading{display:inline-block;width:18px;height:18px;border:2px solid var(--c-border);border-top-color:var(--c-primary);border-radius:50%;animation:spin 1s linear infinite;vertical-align:middle;margin-right:8px}
-@keyframes spin{to{transform:rotate(360deg)}}
-.result{margin-top:20px}
-.result-card{background:var(--c-surface);border:1px solid var(--c-border);border-radius:12px;padding:20px;margin-bottom:12px}
-.field-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px 24px}
+html{scroll-behavior:smooth}
+body{
+  font-family:-apple-system,BlinkMacSystemFont,"Helvetica Neue","PingFang SC","Microsoft YaHei",sans-serif;
+  background:var(--c-bg);color:var(--c-text);line-height:1.6;font-size:14px;min-height:100vh;
+  -webkit-font-smoothing:antialiased;
+}
+.nav{border-bottom:1px solid var(--c-border);background:var(--c-bg)}
+.nav-inner{max-width:1040px;margin:0 auto;padding:14px 24px;display:flex;align-items:center;justify-content:space-between}
+.nav-brand{display:flex;align-items:center;gap:9px;font-size:14px;font-weight:600;color:var(--c-text);text-decoration:none;letter-spacing:-.01em}
+.nav-brand-mark{width:22px;height:22px;border-radius:5px;background:var(--c-accent);display:flex;align-items:center;justify-content:center;color:#0a0b10;font-size:12px;font-weight:800}
+.nav-brand-sub{color:var(--c-text-muted);font-weight:400;font-size:12px;margin-left:1px}
+.nav-links{display:flex;gap:2px;align-items:center}
+.nav-links a{padding:6px 12px;border-radius:6px;font-size:13px;font-weight:500;color:var(--c-text-dim);text-decoration:none;transition:color .15s,background .15s}
+.nav-links a:hover{color:var(--c-text);background:var(--c-surface)}
+.nav-links a.active{color:var(--c-text);background:var(--c-surface)}
+.wrap{max-width:1040px;margin:0 auto;padding:32px 24px 64px}
+.page-head{margin-bottom:24px}
+.page-head h1{font-size:22px;font-weight:700;color:#f4f4f5;letter-spacing:-.02em;margin-bottom:4px}
+.page-head p{font-size:13px;color:var(--c-text-dim)}
+.card{background:transparent;border:1px solid var(--c-border);border-radius:8px;padding:24px;margin-bottom:16px}
+.card h2{font-size:14px;font-weight:600;color:#f4f4f5;margin-bottom:4px;letter-spacing:-.01em}
+.muted{color:var(--c-text-muted);font-size:12.5px}
+
+.drop{border:1px dashed var(--c-border-strong);border-radius:6px;padding:36px;text-align:center;cursor:pointer;transition:border-color .15s,background .15s;background:var(--c-surface)}
+.drop:hover{border-color:var(--c-accent);background:var(--c-surface-2)}
+.drop.dragover{border-color:var(--c-accent);background:var(--c-surface-2)}
+.drop.has-file{border-color:var(--c-green);background:var(--c-accent-dim)}
+.drop-icon{font-size:24px;margin-bottom:6px;opacity:.6;color:var(--c-text-dim)}
+.drop-text{font-size:13px;font-weight:500;margin-bottom:2px;color:var(--c-text)}
+.drop-hint{font-size:11.5px;color:var(--c-text-muted)}
+.btn{display:inline-flex;align-items:center;gap:6px;padding:9px 24px;background:var(--c-accent);color:#fff;border:1px solid var(--c-accent);border-radius:5px;font-size:13px;font-weight:600;cursor:pointer;transition:background .15s;font-family:inherit}
+.btn:hover:not(:disabled){background:#5558e0}
+.btn:disabled{opacity:.4;cursor:not-allowed}
+.result{margin-top:16px}
+.result-card{background:var(--c-surface-2);border:1px solid var(--c-border);border-radius:6px;padding:18px;margin-bottom:10px}
+.result-card-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px}
+.result-card-top h3{font-size:13px;font-weight:600;color:var(--c-text)}
+.field-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px 24px}
 .field{display:flex;flex-direction:column;gap:2px}
-.field-label{font-size:12px;color:var(--c-text-muted);font-weight:600;letter-spacing:.3px}
-.field-value{font-size:14px;color:var(--c-text);font-weight:500}
-.lvl-tag{display:inline-block;padding:2px 10px;border-radius:10px;font-size:12px;font-weight:600}
-.lvl-dev{background:rgba(99,102,241,.15);color:#818cf8;border:1px solid rgba(99,102,241,.3)}
-.lvl-sales{background:rgba(245,158,11,.15);color:#fbbf24;border:1px solid rgba(245,158,11,.3)}
-.lvl-mgmt{background:rgba(16,185,129,.15);color:#34d399;border:1px solid rgba(16,185,129,.3)}
-.lvl-cost{background:rgba(236,72,153,.15);color:#f472b6;border:1px solid rgba(236,72,153,.3)}
-.confidence-bar{height:6px;border-radius:3px;background:var(--c-surface-2);overflow:hidden;margin-top:4px}
-.confidence-fill{height:100%;border-radius:3px;transition:width .5s}
-.ocr-preview{margin-top:12px;padding:12px;background:rgba(0,0,0,.2);border-radius:8px;font-size:12px;color:var(--c-text-muted);max-height:200px;overflow-y:auto;white-space:pre-wrap;font-family:monospace}
-.items-list{display:flex;flex-wrap:wrap;gap:6px}
-.item-tag{padding:4px 10px;background:var(--c-surface-2);border-radius:6px;font-size:12px;color:var(--c-text-dim)}
-.back{display:inline-flex;align-items:center;gap:4px;color:var(--c-text-muted);font-size:13px;text-decoration:none;margin-top:16px}
-.back:hover{color:var(--c-text)}
-.error{background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.3);color:#fca5a5;padding:12px 16px;border-radius:8px;margin-top:12px}
+.field-label{font-size:11px;color:var(--c-text-muted);font-weight:500;letter-spacing:.02em}
+.field-value{font-size:13px;color:var(--c-text)}
+.lvl-tag{display:inline-block;padding:2px 9px;border-radius:3px;font-size:11px;font-weight:600;border:1px solid}
+.lvl-dev{background:var(--c-accent-dim);color:#a5b4fc;border-color:var(--c-accent-dim)}
+.lvl-sales{background:#f59e0b1a;color:var(--c-amber);border-color:#f59e0b33}
+.lvl-mgmt{background:#10b9811a;color:var(--c-green);border-color:#10b98133}
+.lvl-cost{background:#ec48991a;color:#f472b6;border-color:#ec489933}
+.confidence-bar{height:4px;border-radius:2px;background:var(--c-surface);overflow:hidden;margin-top:4px}
+.confidence-fill{height:100%;border-radius:2px}
+.ocr-preview{margin-top:10px;padding:10px;background:var(--c-bg);border:1px solid var(--c-border);border-radius:4px;font-size:11.5px;color:var(--c-text-muted);max-height:180px;overflow-y:auto;white-space:pre-wrap;font-family:"SF Mono",Menlo,Consolas,monospace}
+.items-list{display:flex;flex-wrap:wrap;gap:5px}
+.item-tag{padding:3px 9px;background:var(--c-surface);border:1px solid var(--c-border);border-radius:3px;font-size:11.5px;color:var(--c-text-dim)}
+.loading{display:inline-block;width:16px;height:16px;border:2px solid var(--c-border-strong);border-top-color:var(--c-accent);border-radius:50%;animation:spin .8s linear infinite;margin-right:6px;vertical-align:middle}
+@keyframes spin{to{transform:rotate(360deg)}}
+.error{background:#ef44441a;border:1px solid #ef444433;color:#fca5a5;padding:11px 14px;border-radius:5px;margin-top:10px;font-size:12.5px}
 </style>
 </head>
 <body>
-<nav class="nav"><div class="nav-inner">
-  <a class="nav-brand" href="/"><span class="nav-brand-icon">💰</span>Finance Agent</a>
-  <div><a href="/">首页</a><a href="/report">管报</a><a href="/performance">绩效</a></div>
-</div></nav>
-
+<div class="nav"><div class="nav-inner">
+    <a class="nav-brand" href="/"><span class="nav-brand-mark">F</span><span>财务 Agent<span class="nav-brand-sub"> / Finance</span></span></a>
+    <div class="nav-links">
+        <a href="/">首页</a>
+        <a href="/upload" class="active">数据上传</a>
+        <a href="/report">管报预览</a>
+        <a href="/performance">绩效试算</a>
+        <a href="/monitor">监控</a>
+    </div>
+</div></div>
 <div class="wrap">
-  <h1>📄 发票上传</h1>
-  <p class="subtitle">上传发票 PDF 或图片 → OCR 提取 → AI 解析字段 + 归一化科目 → 入库</p>
-
-  <div class="card">
-    <div class="drop" id="drop">
-      <div class="drop-icon">🧾</div>
-      <div class="drop-text">点击或拖拽发票到此处</div>
-      <div class="drop-hint">支持 PDF / JPG / PNG(扫描件自动 OCR)· 单文件</div>
+    <div class="page-head">
+        <h1>发票上传</h1>
+        <p>上传发票 PDF 或图片 → OCR 提取 → AI 解析字段 + 归一化科目 → 入库</p>
     </div>
-    <input type="file" id="file" accept=".pdf,.png,.jpg,.jpeg,.tif,.tiff,.bmp,.txt" style="display:none">
-    <div style="text-align:center;margin-top:20px">
-      <button class="btn btn-primary" id="btn" disabled>🚀 上传并解析</button>
+    <div class="card">
+        <div class="drop" id="drop">
+            <div class="drop-icon">⬆</div>
+            <div class="drop-text">点击或拖拽发票到此处</div>
+            <div class="drop-hint">支持 PDF / JPG / PNG(扫描件自动 OCR)· 单文件</div>
+        </div>
+        <input type="file" id="file" accept=".pdf,.png,.jpg,.jpeg,.tif,.tiff,.bmp,.txt" style="display:none">
+        <div style="text-align:center;margin-top:16px">
+            <button class="btn" id="btn" disabled>上传并解析</button>
+        </div>
+        <div class="result" id="result"></div>
     </div>
-    <div class="result" id="result"></div>
-    <a href="/" class="back">← 返回首页</a>
-    <a href="/report" class="back" style="margin-left:16px;color:#a78bfa">📈 查看管报 →</a>
-  </div>
 </div>
-
 <script>
 function escapeHtml(s){if(s==null)return'';return String(s).replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]))}
 const zone=document.getElementById('drop'),file=document.getElementById('file'),btn=document.getElementById('btn'),result=document.getElementById('result');
@@ -986,10 +1022,10 @@ zone.addEventListener('dragover',e=>{e.preventDefault();zone.classList.add('drag
 zone.addEventListener('dragleave',()=>zone.classList.remove('dragover'));
 zone.addEventListener('drop',e=>{e.preventDefault();zone.classList.remove('dragover');if(e.dataTransfer.files.length){file.files=e.dataTransfer.files;showFile()}});
 file.addEventListener('change',showFile);
-function showFile(){if(file.files.length){zone.innerHTML='<div class="drop-icon">✅</div><div class="drop-text">'+escapeHtml(file.files[0].name)+'</div><div class="drop-hint">'+(file.files[0].size/1024).toFixed(1)+' KB · 点击重新选择</div>';zone.classList.add('has-file');btn.disabled=false}}
+function showFile(){if(file.files.length){zone.innerHTML='<div class="drop-icon">✓</div><div class="drop-text">'+escapeHtml(file.files[0].name)+'</div><div class="drop-hint">'+(file.files[0].size/1024).toFixed(1)+' KB · 点击重新选择</div>';zone.classList.add('has-file');btn.disabled=false}}
 btn.addEventListener('click',async()=>{
   if(!file.files.length)return;
-  result.innerHTML='<div style="text-align:center;padding:32px"><span class="loading"></span>OCR 提取 + AI 解析中(约 10-30 秒)...</div>';
+  result.innerHTML='<div style="text-align:center;padding:28px;color:var(--c-text-muted);font-size:13px"><span class="loading"></span>OCR 提取 + AI 解析中(约 10-30 秒)...</div>';
   const fd=new FormData();fd.append('file',file.files[0]);
   try{
     const r=await fetch('/api/upload',{method:'POST',body:fd});
@@ -998,30 +1034,31 @@ btn.addEventListener('click',async()=>{
       const d=j.result;
       const lvlClass={'研发费':'lvl-dev','销售费':'lvl-sales','管理费':'lvl-mgmt','营业成本':'lvl-cost','未归类':'lvl-cost'};
       const cls=lvlClass[d.level1]||'lvl-cost';
-      const confColor=d.confidence>=0.8?'#10b981':d.confidence>=0.5?'#f59e0b':'#ef4444';
-      let html='<div class="result-card"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px"><h2 style="font-size:18px;font-weight:700">✅ 解析完成</h2><span class="lvl-tag '+cls+'">'+escapeHtml(d.level1)+' / '+escapeHtml(d.level2)+'</span></div>';
+      const confColor=d.confidence>=0.8?'var(--c-green)':d.confidence>=0.5?'var(--c-amber)':'var(--c-red)';
+      let html='<div class="result-card"><div class="result-card-top"><h3>解析完成</h3><span class="lvl-tag '+cls+'">'+escapeHtml(d.level1)+' / '+escapeHtml(d.level2)+'</span></div>';
       html+='<div class="field-grid">';
       html+='<div class="field"><span class="field-label">发票号码</span><span class="field-value">'+escapeHtml(d.invoice_no||'—')+'</span></div>';
       html+='<div class="field"><span class="field-label">开票日期</span><span class="field-value">'+escapeHtml(d.invoice_date||'—')+'</span></div>';
       html+='<div class="field"><span class="field-label">销售方</span><span class="field-value">'+escapeHtml(d.vendor||'—')+'</span></div>';
-      html+='<div class="field"><span class="field-label">金额</span><span class="field-value" style="font-size:18px;font-weight:700;color:#34d399">¥'+(d.amount||0).toLocaleString('zh-CN')+'</span></div>';
+      html+='<div class="field"><span class="field-label">金额</span><span class="field-value" style="font-size:16px;font-weight:700;color:var(--c-green)">¥'+(d.amount||0).toLocaleString('zh-CN')+'</span></div>';
       html+='</div>';
-      if(d.items&&d.items.length){html+='<div class="field" style="margin-top:12px"><span class="field-label">商品明细</span><div class="items-list">'+d.items.map(it=>'<span class="item-tag">'+escapeHtml(it)+'</span>').join('')+'</div></div>'}
-      html+='<div class="field" style="margin-top:12px"><span class="field-label">AI 判断</span><span class="field-value">'+escapeHtml(d.reason||'—')+'</span>';
+      if(d.items&&d.items.length){html+='<div class="field" style="margin-top:10px"><span class="field-label">商品明细</span><div class="items-list">'+d.items.map(it=>'<span class="item-tag">'+escapeHtml(it)+'</span>').join('')+'</div></div>'}
+      html+='<div class="field" style="margin-top:10px"><span class="field-label">AI 判断</span><span class="field-value" style="font-size:12.5px">'+escapeHtml(d.reason||'—')+'</span>';
       html+='<div class="confidence-bar"><div class="confidence-fill" style="width:'+(d.confidence*100)+'%;background:'+confColor+'"></div></div>';
       html+='<span style="font-size:11px;color:var(--c-text-muted)">置信度 '+(d.confidence*100).toFixed(0)+'%</span></div>';
-      if(j.ocr_text_preview){html+='<details style="margin-top:12px"><summary style="cursor:pointer;font-size:12px;color:var(--c-text-muted)">查看 OCR 原文</summary><div class="ocr-preview">'+escapeHtml(j.ocr_text_preview)+'</div></details>'}
+      if(j.ocr_text_preview){html+='<details style="margin-top:10px"><summary style="cursor:pointer;font-size:11.5px;color:var(--c-text-muted)">查看 OCR 原文</summary><div class="ocr-preview">'+escapeHtml(j.ocr_text_preview)+'</div></details>'}
       html+='</div>';
-      html+='<div style="text-align:center;margin-top:12px"><a href="/report" style="color:#a78bfa;font-weight:600;text-decoration:none">📈 查看管报预览 →</a></div>';
+      html+='<div style="text-align:center;margin-top:10px"><a href="/report" style="color:var(--c-accent);font-weight:500;text-decoration:none;font-size:12.5px">查看管报预览 →</a></div>';
       result.innerHTML=html;
     }else{
-      result.innerHTML='<div class="error">❌ '+escapeHtml(j.error||JSON.stringify(j))+'</div>';
+      result.innerHTML='<div class="error">✗ '+escapeHtml(j.error||JSON.stringify(j))+'</div>';
     }
-  }catch(e){result.innerHTML='<div class="error">❌ 网络错误: '+escapeHtml(e.message)+'</div>'}
+  }catch(e){result.innerHTML='<div class="error">✗ 网络错误: '+escapeHtml(e.message)+'</div>'}
 });
 </script>
 </body>
 </html>"""
+
 
 # === 路由 ===
 @app.route("/login", methods=["GET", "POST"])

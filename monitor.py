@@ -306,35 +306,44 @@ MONITOR_HTML = """<!DOCTYPE html>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>监控仪表盘 · {{ service }}</title>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
+:root{
+  --c-bg:#0a0b10;--c-surface:#11131c20;--c-surface-2:#161824;
+  --c-text:#d4d4d8;--c-text-dim:#8a8a8f;--c-text-muted:#5c5c63;
+  --c-border:#ffffff14;--c-border-strong:#ffffff26;
+  --c-accent:#6366f1;--c-accent-dim:#6366f130;
+  --c-green:#10b981;--c-amber:#f59e0b;--c-red:#ef4444;
+}
 *{margin:0;padding:0;box-sizing:border-box}
-body{font-family:'Inter',system-ui,sans-serif;background:#0f1929;color:#e0e6ed;line-height:1.6;padding:24px}
-.container{max-width:1200px;margin:0 auto}
-h1{font-size:24px;font-weight:700;margin-bottom:8px;color:#fff}
-.subtitle{color:#8b96a5;font-size:14px;margin-bottom:24px}
-.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px;margin-bottom:24px}
-.card{background:#1a2332;border:1px solid #2a3548;border-radius:12px;padding:20px}
-.card .label{font-size:12px;color:#8b96a5;text-transform:uppercase;letter-spacing:.5px}
-.card .value{font-size:28px;font-weight:700;margin-top:4px;color:#fff}
-.card .sub{font-size:12px;color:#8b96a5;margin-top:4px}
-.card.alert .value{color:#f5222d}
-.card.warn .value{color:#fa8c16}
-.card.ok .value{color:#52c41a}
-.section{background:#1a2332;border:1px solid #2a3548;border-radius:12px;padding:24px;margin-bottom:24px}
-.section h2{font-size:16px;font-weight:600;margin-bottom:16px;color:#fff}
-table{width:100%;border-collapse:collapse;font-size:13px}
-th{text-align:left;padding:8px 12px;color:#8b96a5;font-weight:500;border-bottom:1px solid #2a3548}
-td{padding:8px 12px;border-bottom:1px solid #1e2838;color:#e0e6ed}
-tr:hover{background:#1e2838}
-.badge{display:inline-block;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600}
-.badge-red{background:#3d1f1f;color:#f5222d}
-.badge-yellow{background:#3d2f1f;color:#fa8c16}
-.badge-green{background:#1f3d1f;color:#52c41a}
-.refresh-btn{background:#3370ff;color:#fff;border:none;padding:8px 20px;border-radius:8px;cursor:pointer;font-size:13px;font-family:inherit;margin-bottom:16px}
-.refresh-btn:hover{opacity:.9}
+body{font-family:-apple-system,BlinkMacSystemFont,"Helvetica Neue","PingFang SC","Microsoft YaHei",sans-serif;background:var(--c-bg);color:var(--c-text);line-height:1.6;font-size:14px;padding:24px;min-height:100vh;-webkit-font-smoothing:antialiased}
+.container{max-width:1040px;margin:0 auto}
+.page-head{margin-bottom:20px}
+h1{font-size:20px;font-weight:700;color:#f4f4f5;letter-spacing:-.02em;margin-bottom:2px}
+.subtitle{color:var(--c-text-muted);font-size:12.5px}
+.actions{margin-bottom:20px;display:flex;gap:8px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:1px;background:var(--c-border);border:1px solid var(--c-border);border-radius:6px;overflow:hidden;margin-bottom:20px}
+.card{background:var(--c-bg);padding:16px 18px}
+.card .label{font-size:11px;color:var(--c-text-muted);letter-spacing:.04em;text-transform:uppercase;font-weight:500}
+.card .value{font-size:22px;font-weight:700;margin-top:4px;color:#f4f4f5;letter-spacing:-.02em;font-feature-settings:"tnum"}
+.card .sub{font-size:11px;color:var(--c-text-muted);margin-top:3px}
+.card.alert .value{color:var(--c-red)}
+.card.warn .value{color:var(--c-amber)}
+.card.ok .value{color:var(--c-green)}
+.section{background:transparent;border:1px solid var(--c-border);border-radius:6px;padding:18px;margin-bottom:16px}
+.section h2{font-size:13px;font-weight:600;color:var(--c-text);margin-bottom:12px;letter-spacing:-.01em}
+table{width:100%;border-collapse:collapse;font-size:12.5px}
+th{text-align:left;padding:8px 10px;color:var(--c-text-muted);font-weight:500;border-bottom:1px solid var(--c-border);font-size:11px;letter-spacing:.04em;text-transform:uppercase}
+td{padding:9px 10px;border-bottom:1px solid var(--c-border);color:var(--c-text)}
+tr:last-child td{border-bottom:none}
+tr:hover td{background:var(--c-surface)}
+.badge{display:inline-block;padding:2px 8px;border-radius:3px;font-size:10.5px;font-weight:600;border:1px solid;letter-spacing:.02em}
+.badge-red{background:#ef44441a;color:var(--c-red);border-color:#ef444433}
+.badge-yellow{background:#f59e0b1a;color:var(--c-amber);border-color:#f59e0b33}
+.badge-green{background:var(--c-accent-dim);color:var(--c-green);border-color:var(--c-accent-dim)}
+.refresh-btn{background:transparent;color:var(--c-text-dim);border:1px solid var(--c-border-strong);padding:6px 14px;border-radius:5px;cursor:pointer;font-size:12px;font-weight:500;font-family:inherit;transition:all .15s}
+.refresh-btn:hover{color:var(--c-text);border-color:#ffffff40}
 .error-list{max-height:400px;overflow-y:auto}
-.empty{color:#8b96a5;text-align:center;padding:20px}
+.empty{color:var(--c-text-muted);text-align:center;padding:16px;font-size:12.5px}
 </style>
 </head>
 <body>
@@ -417,7 +426,7 @@ tr:hover{background:#1e2838}
         {% else %}<div class="empty">无告警记录</div>{% endif %}
         <div style="margin-top:12px">
             <form method="POST" action="/api/alert/test" style="display:inline">
-                <button type="submit" class="refresh-btn" style="background:#fa8c16">🧪 发送测试告警</button>
+                <button type="submit" class="refresh-btn" style="color:var(--c-amber);border-color:#f59e0b33">发送测试告警</button>
             </form>
         </div>
     </div>
