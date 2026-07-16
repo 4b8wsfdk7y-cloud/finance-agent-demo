@@ -308,49 +308,56 @@ MONITOR_HTML = """<!DOCTYPE html>
 <title>监控仪表盘 · {{ service }}</title>
 <style>
 :root{
-  --c-bg:#0a0b10;--c-surface:#11131c20;--c-surface-2:#161824;
-  --c-text:#d4d4d8;--c-text-dim:#8a8a8f;--c-text-muted:#5c5c63;
-  --c-border:#ffffff14;--c-border-strong:#ffffff26;
-  --c-accent:#6366f1;--c-accent-dim:#6366f130;
-  --c-green:#10b981;--c-amber:#f59e0b;--c-red:#ef4444;
+  --background: oklch(0.145 0.004 270);
+  --foreground: oklch(0.985 0 0);
+  --card: oklch(0.178 0.004 270);
+  --muted: oklch(0.22 0.004 270);
+  --muted-foreground: oklch(0.708 0.004 270);
+  --border: oklch(1 0 0 / 8%);
+  --input: oklch(1 0 0 / 12%);
+  --primary: oklch(0.62 0.18 275);
+  --success: oklch(0.65 0.15 160);
+  --warning: oklch(0.75 0.15 75);
+  --danger: oklch(0.65 0.2 25);
+  --radius: 0.375rem;
 }
 *{margin:0;padding:0;box-sizing:border-box}
-body{font-family:-apple-system,BlinkMacSystemFont,"Helvetica Neue","PingFang SC","Microsoft YaHei",sans-serif;background:var(--c-bg);color:var(--c-text);line-height:1.6;font-size:14px;padding:24px;min-height:100vh;-webkit-font-smoothing:antialiased}
+body{font-family:-apple-system,BlinkMacSystemFont,"Helvetica Neue","PingFang SC","Microsoft YaHei",sans-serif;background:var(--background);color:var(--foreground);line-height:1.6;font-size:14px;padding:24px;min-height:100vh;-webkit-font-smoothing:antialiased;font-feature-settings:"tnum"}
 .container{max-width:1040px;margin:0 auto}
 .page-head{margin-bottom:20px}
-h1{font-size:20px;font-weight:700;color:#f4f4f5;letter-spacing:-.02em;margin-bottom:2px}
-.subtitle{color:var(--c-text-muted);font-size:12.5px}
+h1{font-size:20px;font-weight:600;color:var(--foreground);letter-spacing:-.02em;margin-bottom:2px}
+.subtitle{color:var(--muted-foreground);font-size:12.5px}
 .actions{margin-bottom:20px;display:flex;gap:8px}
-.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:1px;background:var(--c-border);border:1px solid var(--c-border);border-radius:6px;overflow:hidden;margin-bottom:20px}
-.card{background:var(--c-bg);padding:16px 18px}
-.card .label{font-size:11px;color:var(--c-text-muted);letter-spacing:.04em;text-transform:uppercase;font-weight:500}
-.card .value{font-size:22px;font-weight:700;margin-top:4px;color:#f4f4f5;letter-spacing:-.02em;font-feature-settings:"tnum"}
-.card .sub{font-size:11px;color:var(--c-text-muted);margin-top:3px}
-.card.alert .value{color:var(--c-red)}
-.card.warn .value{color:var(--c-amber)}
-.card.ok .value{color:var(--c-green)}
-.section{background:transparent;border:1px solid var(--c-border);border-radius:6px;padding:18px;margin-bottom:16px}
-.section h2{font-size:13px;font-weight:600;color:var(--c-text);margin-bottom:12px;letter-spacing:-.01em}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:1px;background:var(--border);border:1px solid var(--border);border-radius:6px;overflow:hidden;margin-bottom:20px}
+.card{background:var(--card);padding:16px 18px}
+.card .label{font-size:11px;color:var(--muted-foreground);letter-spacing:.04em;text-transform:uppercase;font-weight:500}
+.card .value{font-size:22px;font-weight:600;margin-top:4px;color:var(--foreground);letter-spacing:-.02em;font-feature-settings:"tnum"}
+.card .sub{font-size:11px;color:var(--muted-foreground);margin-top:3px}
+.card.alert .value{color:var(--danger)}
+.card.warn .value{color:var(--warning)}
+.card.ok .value{color:var(--success)}
+.section{background:transparent;border:1px solid var(--border);border-radius:6px;padding:18px;margin-bottom:16px}
+.section h2{font-size:13px;font-weight:600;color:var(--foreground);margin-bottom:12px;letter-spacing:-.01em}
 table{width:100%;border-collapse:collapse;font-size:12.5px}
-th{text-align:left;padding:8px 10px;color:var(--c-text-muted);font-weight:500;border-bottom:1px solid var(--c-border);font-size:11px;letter-spacing:.04em;text-transform:uppercase}
-td{padding:9px 10px;border-bottom:1px solid var(--c-border);color:var(--c-text)}
+th{text-align:left;padding:8px 10px;color:var(--muted-foreground);font-weight:500;border-bottom:1px solid var(--border);font-size:11px;letter-spacing:.04em;text-transform:uppercase}
+td{padding:9px 10px;border-bottom:1px solid var(--border);color:var(--foreground)}
 tr:last-child td{border-bottom:none}
-tr:hover td{background:var(--c-surface)}
+tr:hover td{background:var(--muted)}
 .badge{display:inline-block;padding:2px 8px;border-radius:3px;font-size:10.5px;font-weight:600;border:1px solid;letter-spacing:.02em}
-.badge-red{background:#ef44441a;color:var(--c-red);border-color:#ef444433}
-.badge-yellow{background:#f59e0b1a;color:var(--c-amber);border-color:#f59e0b33}
-.badge-green{background:var(--c-accent-dim);color:var(--c-green);border-color:var(--c-accent-dim)}
-.refresh-btn{background:transparent;color:var(--c-text-dim);border:1px solid var(--c-border-strong);padding:6px 14px;border-radius:5px;cursor:pointer;font-size:12px;font-weight:500;font-family:inherit;transition:all .15s}
-.refresh-btn:hover{color:var(--c-text);border-color:#ffffff40}
+.badge-red{background:oklch(0.65 0.2 25 / 10%);color:var(--danger);border-color:oklch(0.65 0.2 25 / 25%)}
+.badge-yellow{background:oklch(0.75 0.15 75 / 10%);color:var(--warning);border-color:oklch(0.75 0.15 75 / 25%)}
+.badge-green{background:oklch(0.65 0.15 160 / 10%);color:var(--success);border-color:oklch(0.65 0.15 160 / 25%)}
+.refresh-btn{background:transparent;color:var(--muted-foreground);border:1px solid var(--input);padding:6px 14px;border-radius:5px;cursor:pointer;font-size:12px;font-weight:500;font-family:inherit;transition:color .15s,border-color .15s,background .15s}
+.refresh-btn:hover{color:var(--foreground);border-color:var(--foreground);background:var(--muted)}
 .error-list{max-height:400px;overflow-y:auto}
-.empty{color:var(--c-text-muted);text-align:center;padding:16px;font-size:12.5px}
+.empty{color:var(--muted-foreground);text-align:center;padding:16px;font-size:12.5px}
 </style>
 </head>
 <body>
 <div class="container">
-    <h1>📊 {{ service }} 监控仪表盘</h1>
+    <h1>{{ service }} 监控仪表盘</h1>
     <p class="subtitle">启动于 {{ stats.service_start }} · 运行 {{ stats.uptime_human }}</p>
-    <button class="refresh-btn" onclick="location.reload()">🔄 刷新</button>
+    <button class="refresh-btn" onclick="location.reload()">刷新</button>
 
     <div class="grid">
         <div class="card ok"><div class="label">总请求数</div><div class="value">{{ stats.total_requests }}</div><div class="sub">{{ stats.uptime_human }}</div></div>

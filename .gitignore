@@ -1,7 +1,2 @@
-.env
+__pycache__/
 *.pyc
-__pycache__/
-.venv/
-*.log
-*.db
-__pycache__/
