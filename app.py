@@ -266,27 +266,20 @@ REPORT_HTML = """<!DOCTYPE html>
   --background: oklch(0.145 0.004 270);
   --foreground: oklch(0.985 0 0);
   --card: oklch(0.178 0.004 270);
-  --card-foreground: oklch(0.985 0 0);
   --muted: oklch(0.22 0.004 270);
   --muted-foreground: oklch(0.708 0.004 270);
   --border: oklch(1 0 0 / 8%);
   --input: oklch(1 0 0 / 12%);
-  --ring: oklch(0.62 0.18 275);
   --primary: oklch(0.62 0.18 275);
   --primary-foreground: oklch(0.15 0.02 275);
   --primary-hover: oklch(0.57 0.19 275);
   --success: oklch(0.65 0.15 160);
   --warning: oklch(0.75 0.15 75);
   --danger: oklch(0.65 0.2 25);
-  --radius: 0.375rem;
 }
 *{margin:0;padding:0;box-sizing:border-box}
 html{scroll-behavior:smooth}
-body{
-  font-family:-apple-system,BlinkMacSystemFont,"Helvetica Neue","PingFang SC","Microsoft YaHei",sans-serif;
-  background:var(--background);color:var(--foreground);line-height:1.6;font-size:14px;min-height:100vh;
-  -webkit-font-smoothing:antialiased;font-feature-settings:"tnum";
-}
+body{font-family:-apple-system,BlinkMacSystemFont,"Helvetica Neue","PingFang SC","Microsoft YaHei",sans-serif;background:var(--background);color:var(--foreground);line-height:1.6;font-size:14px;min-height:100vh;-webkit-font-smoothing:antialiased;font-feature-settings:"tnum"}
 ::selection{background:oklch(0.62 0.18 275 / 20%);color:var(--foreground)}
 .nav{border-bottom:1px solid var(--border);background:var(--card)}
 .nav-inner{max-width:1040px;margin:0 auto;padding:0 24px;display:flex;align-items:center;justify-content:space-between;height:52px}
@@ -302,31 +295,49 @@ body{
 .page-head h1{font-size:20px;font-weight:600;color:var(--foreground);letter-spacing:-.02em;margin-bottom:3px}
 .page-head p{font-size:12.5px;color:var(--muted-foreground)}
 .card{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:22px;margin-bottom:14px}
-.card h2{font-size:13px;font-weight:600;color:var(--foreground);margin-bottom:3px;letter-spacing:-.01em}
-.muted{color:var(--muted-foreground);font-size:12px}
+.card h2{font-size:13px;font-weight:600;color:var(--foreground);margin-bottom:14px;letter-spacing:-.01em}
 .btn{display:inline-flex;align-items:center;gap:6px;padding:7px 15px;border-radius:6px;font-size:12.5px;font-weight:500;text-decoration:none;transition:background .15s,border-color .15s,color .15s;cursor:pointer;border:1px solid transparent;font-family:inherit;line-height:1.4}
 .btn-primary{background:var(--primary);color:var(--primary-foreground);font-weight:600}
-.btn-primary:hover{background:var(--primary-hover)}
+.btn-primary:hover:not(:disabled){background:var(--primary-hover)}
+.btn-primary:disabled{opacity:.4;cursor:not-allowed}
 .btn-ghost{background:transparent;color:var(--muted-foreground);border:1px solid var(--border)}
 .btn-ghost:hover{color:var(--foreground);border-color:var(--input);background:var(--muted)}
-
 .toolbar{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:16px;flex-wrap:wrap}
 .toolbar-left{display:flex;gap:8px;align-items:center}
 .select{padding:6px 10px;border:1px solid var(--input);border-radius:6px;font-size:12.5px;background:var(--background);color:var(--foreground);font-family:inherit;outline:none}
 .select:focus{border-color:var(--primary);box-shadow:0 0 0 3px oklch(0.62 0.18 275 / 15%)}
-.report-table{width:100%;border-collapse:collapse;font-size:12.5px;background:var(--card);border:1px solid var(--border);border-radius:8px;overflow:hidden}
-.report-table th{background:var(--muted);color:var(--muted-foreground);padding:10px 14px;text-align:left;font-weight:500;border-bottom:1px solid var(--border);font-size:11px;letter-spacing:.04em;text-transform:uppercase}
-.report-table td{padding:11px 14px;border-bottom:1px solid var(--border);color:var(--foreground);font-feature-settings:"tnum"}
+.stat-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:var(--border);border:1px solid var(--border);border-radius:8px;overflow:hidden;margin-bottom:14px}
+.stat-cell{background:var(--card);padding:14px 18px;display:flex;flex-direction:column;gap:3px}
+.stat-label{font-size:11px;color:var(--muted-foreground);letter-spacing:.02em}
+.stat-value{font-size:20px;font-weight:600;color:var(--foreground);letter-spacing:-.02em;font-feature-settings:"tnum"}
+.report-table{width:100%;border-collapse:collapse;font-size:12.5px}
+.report-table th{background:var(--muted);color:var(--muted-foreground);padding:9px 12px;text-align:left;font-weight:500;border-bottom:1px solid var(--border);font-size:11px;letter-spacing:.04em;text-transform:uppercase}
+.report-table td{padding:10px 12px;border-bottom:1px solid var(--border);color:var(--foreground);font-feature-settings:"tnum";vertical-align:middle}
 .report-table tr:last-child td{border-bottom:none}
-.report-table tr:hover td{background:var(--muted)}
-.report-table .level1{font-weight:600;color:var(--foreground)}
-.report-table .level2{color:var(--muted-foreground);padding-left:28px}
-.report-table .amount{font-feature-settings:"tnum";text-align:right}
-.report-table .total-row td{background:var(--muted);font-weight:600;border-top:1px solid var(--input)}
-.ai-box{background:var(--card);border:1px solid var(--border);border-left:2px solid var(--primary);border-radius:0 8px 8px 0;padding:16px 18px;margin-top:16px}
-.ai-box h3{font-size:12.5px;font-weight:600;color:var(--foreground);margin-bottom:8px;letter-spacing:-.01em}
-.ai-box p{font-size:12.5px;color:var(--muted-foreground);line-height:1.7}
-.empty{text-align:center;padding:40px;color:var(--muted-foreground);font-size:13px}
+.report-table tr.l1-row td{background:var(--muted);font-weight:600}
+.report-table .amount{text-align:right}
+.bar-container{width:80px;height:5px;background:var(--input);border-radius:3px;overflow:hidden;display:inline-block;vertical-align:middle}
+.bar-fill{height:100%;background:var(--primary);border-radius:3px}
+.recent-table{width:100%;border-collapse:collapse;font-size:12px}
+.recent-table th{background:var(--muted);color:var(--muted-foreground);padding:8px 10px;text-align:left;font-weight:500;border-bottom:1px solid var(--border);font-size:11px;letter-spacing:.04em;text-transform:uppercase}
+.recent-table td{padding:9px 10px;border-bottom:1px solid var(--border);color:var(--foreground);font-feature-settings:"tnum"}
+.recent-table tr:last-child td{border-bottom:none}
+.recent-table tr:hover td{background:var(--muted)}
+.conf-high{color:var(--success)}
+.conf-mid{color:var(--warning)}
+.conf-low{color:var(--danger)}
+.ai-box{background:var(--card);border:1px solid var(--border);border-left:2px solid var(--primary);border-radius:0 8px 8px 0;padding:14px 18px}
+.ai-box p{font-size:12.5px;color:var(--muted-foreground);line-height:1.7;margin:6px 0}
+.ai-box .tag{display:inline-block;background:oklch(0.62 0.18 275 / 12%);color:var(--primary);font-size:10.5px;padding:1px 7px;border-radius:4px;margin-right:6px;font-weight:600}
+.ai-loading{color:var(--muted-foreground);font-size:12.5px;padding:8px 0}
+.ai-loading .spin{display:inline-block;width:14px;height:14px;border:2px solid var(--border);border-top-color:var(--primary);border-radius:50%;animation:spin .8s linear infinite;margin-right:8px;vertical-align:middle}
+@keyframes spin{to{transform:rotate(360deg)}}
+.feishu-row{display:flex;gap:8px;align-items:center;margin-top:12px;flex-wrap:wrap}
+.chat-select{padding:7px 11px;border:1px solid var(--input);border-radius:6px;font-size:12.5px;background:var(--background);color:var(--foreground);font-family:inherit;outline:none;min-width:200px}
+.result-msg{margin-top:10px;padding:9px 12px;border-radius:6px;font-size:12px;display:none}
+.result-msg.success{background:oklch(0.65 0.15 160 / 10%);color:var(--success);border:1px solid oklch(0.65 0.15 160 / 25%);display:block}
+.result-msg.error{background:oklch(0.65 0.2 25 / 10%);color:var(--danger);border:1px solid oklch(0.65 0.2 25 / 25%);display:block}
+.empty{text-align:center;padding:32px;color:var(--muted-foreground);font-size:13px}
 </style>
 </head>
 <body>
@@ -335,7 +346,7 @@ body{
     <div class="nav-links">
         <a href="/">首页</a>
         <a href="/upload">上传发票</a>
-        <a href="/report">管报</a>
+        <a href="/report" class="active">管报</a>
         <a href="/performance">绩效</a>
         <a href="/monitor">监控</a>
         <a href="/logout">退出</a>
@@ -345,7 +356,7 @@ body{
 <div class="wrap">
   <div class="page-head">
     <h1>管理报表</h1>
-    <p>按收支科目层级汇总,AI 自动生成简评</p>
+    <p>按收支科目层级汇总,自动生成 AI 简评,可推送飞书群</p>
   </div>
 
   <div class="toolbar">
@@ -358,54 +369,138 @@ body{
     <button class="btn btn-ghost" onclick="loadReport()">刷新</button>
   </div>
 
-  <div id="report-content">
-    <div class="empty">加载中...</div>
+  <div class="stat-grid" id="stat-grid">
+    <div class="stat-cell"><div class="stat-label">总笔数</div><div class="stat-value" id="total-count">—</div></div>
+    <div class="stat-cell"><div class="stat-label">总金额</div><div class="stat-value" id="total-amount">—</div></div>
+    <div class="stat-cell"><div class="stat-label">科目数</div><div class="stat-value" id="cat-count">—</div></div>
   </div>
 
-  <div id="ai-commentary" style="display:none">
-    <div class="ai-box">
-      <h3>AI 简评</h3>
-      <p id="ai-text"></p>
+  <div class="card">
+    <h2>科目汇总</h2>
+    <table class="report-table">
+      <thead><tr><th>一级科目</th><th>二级科目</th><th class="amount">笔数</th><th class="amount">金额</th><th class="amount">占比</th></tr></thead>
+      <tbody id="report-tbody"><tr><td colspan="5" class="empty">加载中...</td></tr></tbody>
+    </table>
+  </div>
+
+  <div class="card">
+    <h2>最新上传记录 <span style="color:var(--muted-foreground);font-weight:400;font-size:11px;margin-left:6px">最近 10 条 · scope: <span id="scope-label">—</span></span></h2>
+    <table class="recent-table">
+      <thead><tr><th>时间</th><th>来源</th><th>销售方/摘要</th><th>发票号</th><th class="amount">金额</th><th>科目</th><th>置信度</th><th>归属</th></tr></thead>
+      <tbody id="recent-tbody"><tr><td colspan="8" class="empty">加载中...</td></tr></tbody>
+    </table>
+  </div>
+
+  <div class="card">
+    <h2>AI 简评</h2>
+    <div id="commentary-area"><div class="ai-loading"><span class="spin"></span>AI 正在分析管报...</div></div>
+  </div>
+
+  <div class="card">
+    <h2>发送到飞书</h2>
+    <p style="font-size:12px;color:var(--muted-foreground);margin-bottom:10px">选择群聊后,把管报 + AI 简评发到飞书群</p>
+    <div class="feishu-row">
+      <select class="chat-select" id="chat-select"><option value="">加载群聊中...</option></select>
+      <button class="btn btn-primary" id="send-feishu" disabled>发送到飞书</button>
     </div>
+    <div class="result-msg" id="feishu-result"></div>
   </div>
 </div>
 
 <script>
+function escapeHtml(s){if(s==null)return'';return String(s).replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]))}
 async function loadReport(){
   const scope = document.getElementById('scope-select').value;
-  const container = document.getElementById('report-content');
-  container.innerHTML = '<div class="empty">加载中...</div>';
-  document.getElementById('ai-commentary').style.display = 'none';
+  document.getElementById('report-tbody').innerHTML = '<tr><td colspan="5" class="empty">加载中...</td></tr>';
+  document.getElementById('recent-tbody').innerHTML = '<tr><td colspan="8" class="empty">加载中...</td></tr>';
   try{
     const r = await fetch('/api/report/preview?scope='+scope);
     const d = await r.json();
-    if(!d.ok){ container.innerHTML = '<div class="empty">'+(d.error||'加载失败')+'</div>'; return; }
-    const summary = d.summary || {};
-    const l1Keys = Object.keys(summary);
-    if(l1Keys.length === 0){ container.innerHTML = '<div class="empty">暂无数据</div>'; return; }
-    let html = '<table class="report-table"><thead><tr><th>科目</th><th class="amount">金额</th><th class="amount">笔数</th></tr></thead><tbody>';
-    let total = 0;
-    let totalCnt = 0;
-    l1Keys.forEach(l1=>{
-      const v = summary[l1];
-      html += '<tr class="level1"><td>'+l1+'</td><td class="amount">'+(v.total||0).toLocaleString()+'</td><td class="amount">'+(v.count||0)+'</td></tr>';
-      (v.items||[]).forEach(it=>{
-        html += '<tr class="level2"><td>└ '+(it.level2||'')+'</td><td class="amount">'+(it.total||0).toLocaleString()+'</td><td class="amount">'+(it.count||0)+'</td></tr>';
-      });
-      total += v.total||0;
-      totalCnt += v.count||0;
-    });
-    html += '<tr class="total-row"><td>合计</td><td class="amount">'+total.toLocaleString()+'</td><td class="amount">'+totalCnt+'</td></tr>';
-    html += '</tbody></table>';
-    container.innerHTML = html;
+    if(!d.ok){ document.getElementById('report-tbody').innerHTML = '<tr><td colspan="5" class="empty">'+escapeHtml(d.error||'加载失败')+'</td></tr>'; return; }
+    document.getElementById('total-count').textContent = d.total_count+' 笔';
+    document.getElementById('total-amount').textContent = '¥'+(d.total_amount||0).toLocaleString();
+    document.getElementById('cat-count').textContent = Object.keys(d.summary).length+' 个';
+    document.getElementById('scope-label').textContent = d.scope||'?';
+    // 科目汇总表
+    const tbody = document.getElementById('report-tbody');
+    const gt = d.total_amount || 1;
+    let html = '';
+    for(const [l1, info] of Object.entries(d.summary)){
+      html += '<tr class="l1-row"><td>'+escapeHtml(l1)+'</td><td>—</td><td class="amount">'+info.count+'</td><td class="amount">¥'+(info.total||0).toLocaleString()+'</td><td class="amount">'+(((info.total||0)/gt)*100).toFixed(1)+'%</td></tr>';
+      for(const item of (info.items||[])){
+        const ratio = info.total>0?(item.total/info.total*100):0;
+        html += '<tr><td>└</td><td>'+escapeHtml(item.level2)+'</td><td class="amount">'+item.count+'</td><td class="amount">¥'+(item.total||0).toLocaleString()+'</td><td class="amount"><div class="bar-container"><div class="bar-fill" style="width:'+ratio+'%"></div></div> '+ratio.toFixed(0)+'%</td></tr>';
+      }
+    }
+    tbody.innerHTML = html || '<tr><td colspan="5" class="empty">暂无数据</td></tr>';
+    // 最近记录
+    const rbody = document.getElementById('recent-tbody');
+    if(d.recent && d.recent.length){
+      rbody.innerHTML = d.recent.map(r=>{
+        const dt = r.created_at ? r.created_at.slice(5,16) : '-';
+        const conf = r.confidence>=0.8?'<span class="conf-high">高</span>':r.confidence>=0.5?'<span class="conf-mid">中</span>':'<span class="conf-low">低</span>';
+        const vendor = r.vendor || r.summary || '-';
+        const inv = r.invoice_no || '-';
+        return '<tr><td>'+escapeHtml(dt)+'</td><td>'+escapeHtml(r.source)+'</td><td>'+escapeHtml(vendor)+'</td><td>'+escapeHtml(inv)+'</td><td class="amount">¥'+(r.amount||0).toLocaleString()+'</td><td>'+escapeHtml(r.level1)+'/'+escapeHtml(r.level2||'')+'</td><td>'+conf+' '+(r.confidence*100).toFixed(0)+'%</td><td>'+escapeHtml(r.user_name)+'</td></tr>';
+      }).join('');
+    } else {
+      rbody.innerHTML = '<tr><td colspan="8" class="empty">暂无记录</td></tr>';
+    }
   }catch(e){
-    container.innerHTML = '<div class="empty">网络错误:'+e.message+'</div>';
+    document.getElementById('report-tbody').innerHTML = '<tr><td colspan="5" class="empty">网络错误:'+escapeHtml(e.message)+'</td></tr>';
   }
 }
+async function loadCommentary(){
+  try{
+    const r = await fetch('/api/report/commentary',{method:'POST'});
+    const d = await r.json();
+    const area = document.getElementById('commentary-area');
+    if(d.ok && d.commentary){
+      area.innerHTML = '<div class="ai-box">'+d.commentary.split('\\n').map(p=>p.trim()?'<p><span class="tag">AI</span>'+escapeHtml(p)+'</p>':'').join('')+'</div>';
+    } else {
+      area.innerHTML = '<p style="color:var(--muted-foreground);font-size:12.5px">'+escapeHtml(d.error||'简评生成失败')+'</p>';
+    }
+  }catch(e){
+    document.getElementById('commentary-area').innerHTML = '<p style="color:var(--danger);font-size:12.5px">网络错误:'+escapeHtml(e.message)+'</p>';
+  }
+}
+async function loadChats(){
+  try{
+    const r = await fetch('/api/feishu/chats');
+    const d = await r.json();
+    const sel = document.getElementById('chat-select');
+    if(d.ok && d.chats && d.chats.length>0){
+      sel.innerHTML = d.chats.map(c=>'<option value="'+escapeHtml(c.chat_id)+'">'+escapeHtml(c.name)+'</option>').join('');
+      document.getElementById('send-feishu').disabled = false;
+    } else {
+      sel.innerHTML = '<option value="">无可用群聊 ('+escapeHtml(d.error||'未知错误')+')</option>';
+    }
+  }catch(e){
+    document.getElementById('chat-select').innerHTML = '<option value="">加载失败 ('+escapeHtml(e.message)+')</option>';
+  }
+}
+document.getElementById('send-feishu').addEventListener('click', async ()=>{
+  const chatId = document.getElementById('chat-select').value;
+  if(!chatId) return;
+  const btn = document.getElementById('send-feishu');
+  const msg = document.getElementById('feishu-result');
+  btn.disabled = true; btn.textContent = '发送中...';
+  msg.className = 'result-msg';
+  try{
+    const r = await fetch('/api/report/feishu',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({chat_id:chatId})});
+    const d = await r.json();
+    if(d.ok){ msg.className='result-msg success'; msg.textContent='已发送到飞书群'; }
+    else{ msg.className='result-msg error'; msg.textContent='失败:'+(d.error||'未知错误'); }
+  }catch(e){ msg.className='result-msg error'; msg.textContent='网络错误:'+e.message; }
+  btn.disabled = false; btn.textContent = '发送到飞书';
+});
 loadReport();
+loadCommentary();
+loadChats();
 </script>
 </body>
 </html>"""
+
 
 PERFORMANCE_HTML = """<!DOCTYPE html>
 <html lang="zh">
@@ -828,28 +923,20 @@ UPLOAD_HTML = """<!DOCTYPE html>
   --background: oklch(0.145 0.004 270);
   --foreground: oklch(0.985 0 0);
   --card: oklch(0.178 0.004 270);
-  --card-foreground: oklch(0.985 0 0);
   --muted: oklch(0.22 0.004 270);
   --muted-foreground: oklch(0.708 0.004 270);
   --border: oklch(1 0 0 / 8%);
   --input: oklch(1 0 0 / 12%);
-  --ring: oklch(0.62 0.18 275);
   --primary: oklch(0.62 0.18 275);
   --primary-foreground: oklch(0.15 0.02 275);
   --primary-hover: oklch(0.57 0.19 275);
   --success: oklch(0.65 0.15 160);
   --warning: oklch(0.75 0.15 75);
   --danger: oklch(0.65 0.2 25);
-  --radius: 0.375rem;
 }
 *{margin:0;padding:0;box-sizing:border-box}
 html{scroll-behavior:smooth}
-body{
-  font-family:-apple-system,BlinkMacSystemFont,"Helvetica Neue","PingFang SC","Microsoft YaHei",sans-serif;
-  background:var(--background);color:var(--foreground);line-height:1.6;font-size:14px;min-height:100vh;
-  -webkit-font-smoothing:antialiased;font-feature-settings:"tnum";
-}
-::selection{background:oklch(0.62 0.18 275 / 20%);color:var(--foreground)}
+body{font-family:-apple-system,BlinkMacSystemFont,"Helvetica Neue","PingFang SC","Microsoft YaHei",sans-serif;background:var(--background);color:var(--foreground);line-height:1.6;font-size:14px;min-height:100vh;-webkit-font-smoothing:antialiased;font-feature-settings:"tnum"}
 .nav{border-bottom:1px solid var(--border);background:var(--card)}
 .nav-inner{max-width:1040px;margin:0 auto;padding:0 24px;display:flex;align-items:center;justify-content:space-between;height:52px}
 .nav-brand{display:flex;align-items:center;gap:8px;font-size:13.5px;font-weight:600;color:var(--foreground);text-decoration:none;letter-spacing:-.01em}
@@ -864,38 +951,48 @@ body{
 .page-head h1{font-size:20px;font-weight:600;color:var(--foreground);letter-spacing:-.02em;margin-bottom:3px}
 .page-head p{font-size:12.5px;color:var(--muted-foreground)}
 .card{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:22px;margin-bottom:14px}
-.card h2{font-size:13px;font-weight:600;color:var(--foreground);margin-bottom:3px;letter-spacing:-.01em}
-.muted{color:var(--muted-foreground);font-size:12px}
-.btn{display:inline-flex;align-items:center;gap:6px;padding:7px 15px;border-radius:6px;font-size:12.5px;font-weight:500;text-decoration:none;transition:background .15s,border-color .15s,color .15s;cursor:pointer;border:1px solid transparent;font-family:inherit;line-height:1.4}
-.btn-primary{background:var(--primary);color:var(--primary-foreground);font-weight:600}
-.btn-primary:hover{background:var(--primary-hover)}
-.btn-ghost{background:transparent;color:var(--muted-foreground);border:1px solid var(--border)}
+.btn{display:inline-flex;align-items:center;gap:6px;padding:8px 22px;border-radius:6px;font-size:12.5px;font-weight:600;cursor:pointer;border:1px solid transparent;font-family:inherit;transition:background .15s}
+.btn-primary{background:var(--primary);color:var(--primary-foreground)}
+.btn-primary:hover:not(:disabled){background:var(--primary-hover)}
+.btn-primary:disabled{opacity:.4;cursor:not-allowed}
+.btn-ghost{background:transparent;color:var(--muted-foreground);border:1px solid var(--border);font-weight:500}
 .btn-ghost:hover{color:var(--foreground);border-color:var(--input);background:var(--muted)}
-
 .drop-zone{border:1px dashed var(--input);border-radius:8px;padding:36px;text-align:center;color:var(--muted-foreground);cursor:pointer;transition:border-color .15s,background .15s;background:var(--muted)}
 .drop-zone:hover{border-color:var(--primary);background:var(--card)}
 .drop-zone.dragover{border-color:var(--primary);background:var(--card)}
 .drop-zone.has-file{border-color:var(--success);background:oklch(0.65 0.15 160 / 8%);color:var(--success)}
-.drop-icon{font-size:24px;margin-bottom:6px;opacity:.5;color:var(--muted-foreground)}
+.drop-icon{font-size:24px;margin-bottom:6px;opacity:.6}
 .drop-text{font-size:13px;font-weight:500;margin-bottom:2px;color:var(--foreground)}
 .drop-hint{font-size:11.5px;color:var(--muted-foreground)}
 .info-box{background:var(--muted);border-left:2px solid var(--primary);border-radius:0 6px 6px 0;padding:11px 14px;margin-top:14px;font-size:11.5px;color:var(--muted-foreground);line-height:1.7}
 .info-box b{color:var(--foreground);font-weight:600}
-.btn{display:inline-flex;align-items:center;gap:6px;padding:8px 22px;background:var(--primary);color:var(--primary-foreground);border:1px solid var(--primary);border-radius:6px;font-size:12.5px;font-weight:600;cursor:pointer;transition:background .15s;font-family:inherit}
-.btn:hover:not(:disabled){background:var(--primary-hover)}
-.btn:disabled{opacity:.4;cursor:not-allowed}
-.result-box{margin-top:14px}
-.result-summary{background:var(--muted);border:1px solid var(--border);border-radius:6px;padding:14px 16px;margin-bottom:10px}
-.result-summary-top{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:8px}
-.result-summary-top b{font-weight:600;color:var(--foreground)}
-.result-summary-top .conf{color:var(--muted-foreground);font-size:11px;margin-left:4px}
-.lvl-badge{display:inline-block;padding:2px 9px;border-radius:5px;font-size:11px;font-weight:500;border:1px solid;background:oklch(0.62 0.18 275 / 10%);color:var(--primary);border-color:oklch(0.62 0.18 275 / 25%)}
-.result-table{width:100%;border-collapse:collapse;font-size:12.5px;margin-top:8px}
-.result-table th{background:var(--muted);color:var(--muted-foreground);padding:9px 10px;text-align:left;font-weight:500;border-bottom:1px solid var(--border);font-size:11px;letter-spacing:.02em}
-.result-table td{padding:9px 10px;border-bottom:1px solid var(--border);color:var(--foreground);vertical-align:top}
-.result-table tr:hover td{background:var(--muted)}
-.loading{display:inline-block;width:16px;height:16px;border:2px solid var(--border);border-top-color:var(--primary);border-radius:50%;animation:spin .8s linear infinite;margin-right:6px;vertical-align:middle}
+.action-row{margin-top:14px;display:flex;gap:8px;align-items:center}
+.loading{display:inline-block;width:14px;height:14px;border:2px solid var(--border);border-top-color:var(--primary);border-radius:50%;animation:spin .8s linear infinite;margin-right:6px;vertical-align:middle}
 @keyframes spin{to{transform:rotate(360deg)}}
+.result-card{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:18px;margin-top:14px}
+.result-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;flex-wrap:wrap;gap:8px}
+.result-head h3{font-size:14px;font-weight:600;color:var(--success);letter-spacing:-.01em}
+.lvl-tag{display:inline-block;padding:3px 10px;border-radius:5px;font-size:11.5px;font-weight:600;border:1px solid;background:oklch(0.62 0.18 275 / 10%);color:var(--primary);border-color:oklch(0.62 0.18 275 / 25%)}
+.field-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px 28px}
+.field{display:flex;flex-direction:column;gap:3px}
+.field-label{font-size:11px;color:var(--muted-foreground);font-weight:500;letter-spacing:.02em}
+.field-value{font-size:13px;color:var(--foreground);font-weight:500;word-break:break-all}
+.field-value.amount{font-size:17px;font-weight:700;color:var(--success);font-feature-settings:"tnum"}
+.items-list{display:flex;flex-wrap:wrap;gap:5px;margin-top:4px}
+.item-tag{padding:3px 9px;background:var(--muted);border:1px solid var(--border);border-radius:5px;font-size:11.5px;color:var(--muted-foreground)}
+.confidence-wrap{margin-top:4px}
+.confidence-bar{height:5px;border-radius:3px;background:var(--input);overflow:hidden;margin-bottom:4px}
+.confidence-fill{height:100%;border-radius:3px}
+.confidence-label{font-size:11px;color:var(--muted-foreground)}
+.conf-high{color:var(--success)}
+.conf-mid{color:var(--warning)}
+.conf-low{color:var(--danger)}
+.ocr-preview{margin-top:12px;padding:10px 12px;background:var(--background);border:1px solid var(--border);border-radius:6px;font-size:11.5px;color:var(--muted-foreground);max-height:200px;overflow-y:auto;white-space:pre-wrap;font-family:ui-monospace,Menlo,Monaco,monospace;line-height:1.5}
+details summary{cursor:pointer;font-size:11.5px;color:var(--muted-foreground);user-select:none}
+details summary:hover{color:var(--foreground)}
+.error-box{background:oklch(0.65 0.2 25 / 8%);border:1px solid oklch(0.65 0.2 25 / 25%);color:var(--danger);padding:11px 14px;border-radius:6px;margin-top:14px;font-size:12.5px}
+.next-link{display:inline-block;margin-top:14px;color:var(--primary);font-weight:500;font-size:12.5px;text-decoration:none}
+.next-link:hover{text-decoration:underline}
 </style>
 </head>
 <body>
@@ -903,7 +1000,7 @@ body{
     <a class="nav-brand" href="/"><span class="nav-brand-mark">F</span><span>财务 Agent<span class="nav-brand-sub">/ Finance</span></span></a>
     <div class="nav-links">
         <a href="/">首页</a>
-        <a href="/upload">上传发票</a>
+        <a href="/upload" class="active">上传发票</a>
         <a href="/report">管报</a>
         <a href="/performance">绩效</a>
         <a href="/monitor">监控</a>
@@ -914,7 +1011,7 @@ body{
 <div class="wrap">
   <div class="page-head">
     <h1>上传发票</h1>
-    <p>PDF / 图片 / TXT,AI 自动提取并归一化</p>
+    <p>PDF / 图片 / TXT → OCR 提取 → AI 解析字段 + 归一化科目 → 入库</p>
   </div>
 
   <div class="card">
@@ -922,26 +1019,28 @@ body{
       <div class="drop-zone" id="drop-zone">
         <div class="drop-icon">⬆</div>
         <div class="drop-text">点击或拖拽文件上传</div>
-        <div class="drop-hint">支持 PDF / JPG / PNG / TXT,单文件 ≤ 10MB</div>
-        <input type="file" id="file-input" name="file" style="display:none" accept=".pdf,.jpg,.jpeg,.png,.txt">
+        <div class="drop-hint">支持 PDF / JPG / PNG / TXT(扫描件自动 OCR)· 单文件 ≤ 10MB</div>
+        <input type="file" id="file-input" name="file" style="display:none" accept=".pdf,.jpg,.jpeg,.png,.txt,.tif,.tiff,.bmp">
       </div>
       <div class="info-box">
         <b>处理流程:</b> OCR 文本提取 → AI 解析(发票号/日期/供应商/金额/明细)→ 科目归一化(一级 + 二级 + 置信度)→ 入库 → 管报/绩效自动更新
       </div>
-      <div style="margin-top:14px;display:flex;gap:8px">
-        <button type="submit" class="btn" id="upload-btn" disabled>开始解析</button>
+      <div class="action-row">
+        <button type="submit" class="btn btn-primary" id="upload-btn" disabled>开始解析</button>
         <button type="button" class="btn btn-ghost" onclick="clearResult()">清空</button>
       </div>
     </form>
-  </div>
 
-  <div id="result" class="result-box" style="display:none"></div>
+    <div id="result"></div>
+  </div>
 </div>
 
 <script>
+function escapeHtml(s){if(s==null)return'';return String(s).replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]))}
 const dropZone = document.getElementById('drop-zone');
 const fileInput = document.getElementById('file-input');
 const uploadBtn = document.getElementById('upload-btn');
+const result = document.getElementById('result');
 let currentFile = null;
 
 dropZone.addEventListener('click', ()=>fileInput.click());
@@ -959,16 +1058,16 @@ function handleFile(file){
   dropZone.classList.add('has-file');
   dropZone.querySelector('.drop-icon').textContent = '✓';
   dropZone.querySelector('.drop-text').textContent = file.name;
-  dropZone.querySelector('.drop-hint').textContent = (file.size/1024).toFixed(1)+' KB';
+  dropZone.querySelector('.drop-hint').textContent = (file.size/1024).toFixed(1)+' KB · 点击重新选择';
   uploadBtn.disabled = false;
 }
 
 function clearResult(){
-  document.getElementById('result').style.display = 'none';
+  result.innerHTML = '';
   dropZone.classList.remove('has-file');
   dropZone.querySelector('.drop-icon').textContent = '⬆';
   dropZone.querySelector('.drop-text').textContent = '点击或拖拽文件上传';
-  dropZone.querySelector('.drop-hint').textContent = '支持 PDF / JPG / PNG / TXT,单文件 ≤ 10MB';
+  dropZone.querySelector('.drop-hint').textContent = '支持 PDF / JPG / PNG / TXT(扫描件自动 OCR)· 单文件 ≤ 10MB';
   fileInput.value = '';
   currentFile = null;
   uploadBtn.disabled = true;
@@ -979,37 +1078,42 @@ document.getElementById('upload-form').addEventListener('submit', async e=>{
   if(!currentFile) return;
   uploadBtn.disabled = true;
   uploadBtn.innerHTML = '<span class="loading"></span>解析中...';
-  const result = document.getElementById('result');
-  result.style.display = 'block';
-  result.innerHTML = '<div class="result-summary"><span class="loading"></span>AI 正在解析发票...</div>';
+  result.innerHTML = '<div style="padding:24px;text-align:center;color:var(--muted-foreground);font-size:13px"><span class="loading"></span>OCR 提取 + AI 解析中(约 10-30 秒)...</div>';
   try{
     const fd = new FormData();
     fd.append('file', currentFile);
     const r = await fetch('/api/upload', {method:'POST', body:fd});
-    const d = await r.json();
-    if(d.ok){
-      const inv = d.invoice || d.data || {};
-      const items = inv.items || [];
-      let html = '<div class="result-summary"><div class="result-summary-top"><b>解析完成</b>';
-      if(inv.level1) html += '<span class="lvl-badge">'+inv.level1+(inv.level2?' / '+inv.level2:'')+'</span>';
-      if(inv.confidence) html += '<span class="conf">置信度 '+(inv.confidence*100).toFixed(0)+'%</span>';
+    const j = await r.json();
+    if(j.ok){
+      const d = j.result;
+      const conf = d.confidence||0;
+      const confClass = conf>=0.8?'conf-high':conf>=0.5?'conf-mid':'conf-low';
+      const confColor = conf>=0.8?'var(--success)':conf>=0.5?'var(--warning)':'var(--danger)';
+      let html = '<div class="result-card">';
+      html += '<div class="result-head"><h3>解析完成</h3><span class="lvl-tag">'+escapeHtml(d.level1||'未归类')+' / '+escapeHtml(d.level2||'未归类')+'</span></div>';
+      html += '<div class="field-grid">';
+      html += '<div class="field"><span class="field-label">发票号码</span><span class="field-value">'+escapeHtml(d.invoice_no||'—')+'</span></div>';
+      html += '<div class="field"><span class="field-label">开票日期</span><span class="field-value">'+escapeHtml(d.invoice_date||'—')+'</span></div>';
+      html += '<div class="field"><span class="field-label">销售方</span><span class="field-value">'+escapeHtml(d.vendor||'—')+'</span></div>';
+      html += '<div class="field"><span class="field-label">金额</span><span class="field-value amount">¥'+(d.amount||0).toLocaleString('zh-CN')+'</span></div>';
       html += '</div>';
-      html += '<div style="font-size:12px;color:var(--muted-foreground);line-height:1.7">';
-      if(inv.vendor) html += '供应商:'+inv.vendor+' · ';
-      if(inv.invoice_date) html += '日期:'+inv.invoice_date+' · ';
-      if(inv.amount) html += '金额:'+(inv.amount||0).toLocaleString()+' 元';
-      html += '</div></div>';
-      if(items.length){
-        html += '<table class="result-table"><thead><tr><th>明细</th><th>金额</th></tr></thead><tbody>';
-        items.forEach(it=>{ html += '<tr><td>'+(it.name||it.description||'')+'</td><td>'+(it.amount||0).toLocaleString()+'</td></tr>'; });
-        html += '</tbody></table>';
+      if(d.items && d.items.length){
+        html += '<div class="field" style="margin-top:14px"><span class="field-label">商品明细</span><div class="items-list">'+d.items.map(it=>'<span class="item-tag">'+escapeHtml(typeof it==='string'?it:(it.name||it.description||JSON.stringify(it)))+'</span>').join('')+'</div></div>';
       }
+      html += '<div class="field" style="margin-top:14px"><span class="field-label">AI 判断</span><span class="field-value">'+escapeHtml(d.reason||'—')+'</span>';
+      html += '<div class="confidence-wrap"><div class="confidence-bar"><div class="confidence-fill" style="width:'+(conf*100)+'%;background:'+confColor+'"></div></div>';
+      html += '<span class="confidence-label '+confClass+'">置信度 '+(conf*100).toFixed(0)+'%</span></div></div>';
+      if(j.ocr_text_preview){
+        html += '<details style="margin-top:14px"><summary>查看 OCR 原文</summary><div class="ocr-preview">'+escapeHtml(j.ocr_text_preview)+'</div></details>';
+      }
+      html += '<a class="next-link" href="/report">查看管报预览 →</a>';
+      html += '</div>';
       result.innerHTML = html;
     } else {
-      result.innerHTML = '<div class="result-summary" style="color:var(--danger)">'+(d.error||'解析失败')+'</div>';
+      result.innerHTML = '<div class="error-box">解析失败:'+escapeHtml(j.error||JSON.stringify(j))+'</div>';
     }
   }catch(e){
-    result.innerHTML = '<div class="result-summary" style="color:var(--danger)">网络错误:'+e.message+'</div>';
+    result.innerHTML = '<div class="error-box">网络错误:'+escapeHtml(e.message)+'</div>';
   }
   uploadBtn.disabled = false;
   uploadBtn.textContent = '开始解析';
@@ -1017,6 +1121,7 @@ document.getElementById('upload-form').addEventListener('submit', async e=>{
 </script>
 </body>
 </html>"""
+
 
 
 
