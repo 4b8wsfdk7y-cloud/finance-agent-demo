@@ -354,12 +354,6 @@ body{
         <option value="mine">只看我的</option>
         <option value="all">全部(仅财务)</option>
       </select>
-      <select class="select" id="period-select" onchange="loadReport()">
-        <option value="all">全部</option>
-        <option value="month">本月</option>
-        <option value="quarter">本季</option>
-        <option value="year">本年</option>
-      </select>
     </div>
     <button class="btn btn-ghost" onclick="loadReport()">刷新</button>
   </div>
@@ -379,31 +373,33 @@ body{
 <script>
 async function loadReport(){
   const scope = document.getElementById('scope-select').value;
-  const period = document.getElementById('period-select').value;
   const container = document.getElementById('report-content');
   container.innerHTML = '<div class="empty">加载中...</div>';
+  document.getElementById('ai-commentary').style.display = 'none';
   try{
-    const r = await fetch(`/api/report/preview?scope=${scope}&period=${period}`);
+    const r = await fetch('/api/report/preview?scope='+scope);
     const d = await r.json();
-    if(!d.ok && !d.rows){ container.innerHTML = '<div class="empty">'+(d.error||'加载失败')+'</div>'; return; }
-    const rows = d.rows || d.items || [];
-    if(rows.length === 0){ container.innerHTML = '<div class="empty">暂无数据</div>'; return; }
-    let html = '<table class="report-table"><thead><tr><th>科目</th><th class="amount">金额</th></tr></thead><tbody>';
+    if(!d.ok){ container.innerHTML = '<div class="empty">'+(d.error||'加载失败')+'</div>'; return; }
+    const summary = d.summary || {};
+    const l1Keys = Object.keys(summary);
+    if(l1Keys.length === 0){ container.innerHTML = '<div class="empty">暂无数据</div>'; return; }
+    let html = '<table class="report-table"><thead><tr><th>科目</th><th class="amount">金额</th><th class="amount">笔数</th></tr></thead><tbody>';
     let total = 0;
-    rows.forEach(row=>{
-      const isL1 = !row.level2;
-      html += `<tr class="${isL1?'level1':'level2'}"><td>${isL1?row.level1:'└ '+row.level2}</td><td class="amount">${(row.amount||0).toLocaleString()}</td></tr>`;
-      if(isL1) total += (row.amount||0);
+    let totalCnt = 0;
+    l1Keys.forEach(l1=>{
+      const v = summary[l1];
+      html += '<tr class="level1"><td>'+l1+'</td><td class="amount">'+(v.total||0).toLocaleString()+'</td><td class="amount">'+(v.count||0)+'</td></tr>';
+      (v.items||[]).forEach(it=>{
+        html += '<tr class="level2"><td>└ '+(it.level2||'')+'</td><td class="amount">'+(it.total||0).toLocaleString()+'</td><td class="amount">'+(it.count||0)+'</td></tr>';
+      });
+      total += v.total||0;
+      totalCnt += v.count||0;
     });
-    html += `<tr class="total-row"><td>合计</td><td class="amount">${total.toLocaleString()}</td></tr>`;
+    html += '<tr class="total-row"><td>合计</td><td class="amount">'+total.toLocaleString()+'</td><td class="amount">'+totalCnt+'</td></tr>';
     html += '</tbody></table>';
     container.innerHTML = html;
-    if(d.commentary){
-      document.getElementById('ai-text').textContent = d.commentary;
-      document.getElementById('ai-commentary').style.display = 'block';
-    }
   }catch(e){
-    container.innerHTML = '<div class="empty">网络错误</div>';
+    container.innerHTML = '<div class="empty">网络错误:'+e.message+'</div>';
   }
 }
 loadReport();
@@ -506,13 +502,8 @@ body{
 
   <div class="toolbar">
     <div class="toolbar-left">
-      <select class="select" id="dim-select" onchange="loadPerf()">
-        <option value="department">按部门</option>
-        <option value="project">按项目</option>
-      </select>
-      <select class="select" id="scope-select" onchange="loadPerf()">
-        <option value="mine">只看我的</option>
-        <option value="all">全部(仅财务)</option>
+      <select class="select" id="dept-select" onchange="loadPerf()">
+        <option value="">全部部门</option>
       </select>
     </div>
     <button class="btn btn-ghost" onclick="loadPerf()">刷新</button>
@@ -526,32 +517,44 @@ body{
 
 <script>
 async function loadPerf(){
-  const dim = document.getElementById('dim-select').value;
-  const scope = document.getElementById('scope-select').value;
+  const dept = document.getElementById('dept-select').value;
   const container = document.getElementById('perf-content');
   const kpi = document.getElementById('kpi-grid');
   container.innerHTML = '<div class="empty">加载中...</div>';
+  kpi.innerHTML = '';
   try{
-    const r = await fetch(`/api/performance?dim=${dim}&scope=${scope}`);
+    const url = '/api/performance/calculate'+(dept?('?department='+encodeURIComponent(dept)):'');
+    const r = await fetch(url);
     const d = await r.json();
-    if(!d.ok && !d.rows){ container.innerHTML = '<div class="empty">'+(d.error||'加载失败')+'</div>'; return; }
-    const kpis = d.kpis || [];
-    if(kpis.length){
-      kpi.innerHTML = kpis.map(k=>`<div class="kpi-card"><div class="kpi-label">${k.label}</div><div class="kpi-value">${k.value}<span class="unit">${k.unit||''}</span></div></div>`).join('');
+    if(!d.ok){ container.innerHTML = '<div class="empty">'+(d.error||'未配置绩效规则或加载失败')+'</div>'; return; }
+    const depts = d.departments || [];
+    // KPI 卡片
+    const kpis = [
+      {label:'部门数', value:depts.length, unit:''},
+      {label:'累计流水', value:(d.total_amount||0).toLocaleString(), unit:'元'},
+      {label:'累计笔数', value:d.total_count||0, unit:'笔'},
+      {label:'应发奖金', value:(d.total_bonus||0).toLocaleString(), unit:'元'},
+    ];
+    kpi.innerHTML = kpis.map(k=>'<div class="kpi-card"><div class="kpi-label">'+k.label+'</div><div class="kpi-value">'+k.value+'<span class="unit">'+k.unit+'</span></div></div>').join('');
+    if(depts.length === 0){ container.innerHTML = '<div class="empty">暂无数据</div>'; return; }
+    // 填充部门筛选
+    const sel = document.getElementById('dept-select');
+    if(sel.options.length <= 1){
+      depts.forEach(r=>{
+        const o = document.createElement('option');
+        o.value = r.department; o.textContent = r.department;
+        sel.appendChild(o);
+      });
     }
-    const rows = d.rows || [];
-    if(rows.length === 0){ container.innerHTML = '<div class="empty">暂无数据</div>'; return; }
-    let html = '<table class="perf-table"><thead><tr><th>'+(dim==='department'?'部门':'项目')+'</th><th class="amount">成本</th><th class="amount">KPI</th></tr></thead><tbody>';
-    let total = 0;
-    rows.forEach(row=>{
-      html += `<tr><td>${row.name}</td><td class="amount">${(row.cost||0).toLocaleString()}</td><td class="amount">${row.kpi||'—'}</td></tr>`;
-      total += (row.cost||0);
+    let html = '<table class="perf-table"><thead><tr><th>部门</th><th>岗位</th><th class="amount">目标</th><th class="amount">实际</th><th class="amount">达成率</th><th class="amount">奖金</th><th>状态</th></tr></thead><tbody>';
+    depts.forEach(r=>{
+      html += '<tr><td>'+r.department+'</td><td>'+(r.position||'')+'</td><td class="amount">'+(r.target_amount||0).toLocaleString()+'</td><td class="amount">'+(r.actual_amount||0).toLocaleString()+'</td><td class="amount">'+(r.achievement_rate||0)+'%</td><td class="amount">'+(r.bonus||0).toLocaleString()+'</td><td>'+(r.status||'')+'</td></tr>';
     });
-    html += `<tr class="total-row"><td>合计</td><td class="amount">${total.toLocaleString()}</td><td></td></tr>`;
+    html += '<tr class="total-row"><td>合计</td><td></td><td></td><td></td><td></td><td class="amount">'+(d.total_bonus||0).toLocaleString()+'</td><td></td></tr>';
     html += '</tbody></table>';
     container.innerHTML = html;
   }catch(e){
-    container.innerHTML = '<div class="empty">网络错误</div>';
+    container.innerHTML = '<div class="empty">网络错误:'+e.message+'</div>';
   }
 }
 loadPerf();
